@@ -1,0 +1,62 @@
+# .github/workflows/deploy.yml
+name: Deploy SI-PERKARA to GitHub Pages & Auto Sync
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  schedule:
+    # Otomatisasi sync data spreadsheet & deploy setiap jam
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Sync Real-time Spreadsheet Data
+        run: node scripts/fetch_data.js
+        env:
+          GOOGLE_SHEET_CSV_URL: ${{ secrets.GOOGLE_SHEET_CSV_URL }}
+
+      - name: Commit Updated Data JSON (If Changed)
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/data_perkara.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "auto: Sync latest spreadsheet data JSON" && git push)
+
+      - name: Build Static App for GitHub Pages
+        run: npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
