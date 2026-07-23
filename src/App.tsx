@@ -55,32 +55,65 @@ export default function App() {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [selectedCaseDetail, setSelectedCaseDetail] = useState<CaseRecord | null>(null);
 
-  // Load Initial Data from Storage / Cache & check for fresh public data_perkara.json
+  // Load Initial Data from Storage / Cache & merge with fresh public data / Google Sheet
   useEffect(() => {
     const loadedCases = StorageService.getCases();
     const loadedBiayaProses = StorageService.getBiayaProsesRecords();
     const loadedNotifs = StorageService.getNotifications();
+    const syncSettings = StorageService.getSyncSettings();
+
     setCases(loadedCases);
     setBiayaProsesRecords(loadedBiayaProses);
     setNotifications(loadedNotifs);
     setCacheMeta(StorageService.getCacheMeta());
 
-    // Auto-fetch fresh synced JSON from public folder if deployed on GitHub Pages / server
-    fetch('./data_perkara.json')
-      .then(res => {
-        if (res.ok) return res.json();
-        throw new Error('Public JSON not available');
-      })
-      .then((publicRecords: CaseRecord[]) => {
-        if (Array.isArray(publicRecords) && publicRecords.length > 0) {
-          setCases(publicRecords);
-          StorageService.saveCases(publicRecords);
-          setCacheMeta(StorageService.getCacheMeta());
-        }
-      })
-      .catch(() => {
-        // Fallback or ignore if file not found locally in dev
-      });
+    const mergeWithIncoming = (incomingRecords: CaseRecord[]) => {
+      if (Array.isArray(incomingRecords) && incomingRecords.length > 0) {
+        setCases(prevCases => {
+          const caseMap = new Map<string, CaseRecord>();
+
+          // Put incoming records from spreadsheet/JSON first
+          incomingRecords.forEach(inc => {
+            const key = inc.nomorPerkara && inc.nomorPerkara.trim() !== '' 
+              ? inc.nomorPerkara.trim().toLowerCase() 
+              : inc.id;
+            caseMap.set(key, inc);
+          });
+
+          // Overlay local cases so user-added local additions or edits are preserved
+          prevCases.forEach(local => {
+            const key = local.nomorPerkara && local.nomorPerkara.trim() !== '' 
+              ? local.nomorPerkara.trim().toLowerCase() 
+              : local.id;
+            if (!caseMap.has(key)) {
+              caseMap.set(key, local);
+            } else {
+              const existing = caseMap.get(key)!;
+              caseMap.set(key, { ...existing, ...local });
+            }
+          });
+
+          const merged = Array.from(caseMap.values());
+          StorageService.saveCases(merged);
+          return merged;
+        });
+        setCacheMeta(StorageService.getCacheMeta());
+      }
+    };
+
+    if (syncSettings.googleSheetUrl && syncSettings.googleSheetUrl.trim().length > 0) {
+      SyncService.fetchGoogleSheetCsv(syncSettings.googleSheetUrl)
+        .then(mergeWithIncoming)
+        .catch(err => console.warn('Gagal auto-sync Google Sheet:', err));
+    } else {
+      fetch('./data_perkara.json')
+        .then(res => {
+          if (res.ok) return res.json();
+          throw new Error('Public JSON tidak tersedia');
+        })
+        .then(mergeWithIncoming)
+        .catch(() => {});
+    }
   }, []);
 
   // Sync state changes to storage

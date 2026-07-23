@@ -120,8 +120,13 @@ export class SyncService {
   static async fetchGoogleSheetCsv(url: string): Promise<CaseRecord[]> {
     let csvUrl = url.trim();
     
-    // Transform edit URL to published CSV URL if necessary
-    if (csvUrl.includes('docs.google.com/spreadsheets/d/')) {
+    // Transform pubhtml or view URL to published CSV format
+    if (csvUrl.includes('/pubhtml')) {
+      csvUrl = csvUrl.replace('/pubhtml', '/pub');
+      if (!csvUrl.includes('output=csv')) {
+        csvUrl += (csvUrl.includes('?') ? '&' : '?') + 'output=csv';
+      }
+    } else if (csvUrl.includes('docs.google.com/spreadsheets/d/') && !csvUrl.includes('/pub')) {
       const match = csvUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
       if (match && match[1]) {
         const sheetId = match[1];
