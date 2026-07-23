@@ -1,0 +1,258 @@
+import React from 'react';
+import { 
+  Scale, 
+  PlusCircle, 
+  FileSpreadsheet, 
+  Github, 
+  HardDrive, 
+  Bell, 
+  RefreshCw, 
+  Database,
+  Sun,
+  Moon
+} from 'lucide-react';
+import { SyncSettings, CacheMetadata } from '../types';
+
+interface NavbarProps {
+  onOpenForm: () => void;
+  onOpenSyncModal: () => void;
+  onOpenGithubModal: () => void;
+  onOpenCacheModal: () => void;
+  onToggleNotifPopover: () => void;
+  unreadNotifCount: number;
+  syncSettings: SyncSettings;
+  cacheMeta: CacheMetadata;
+  activeTab: 'dashboard' | 'table' | 'buku-biaya-proses';
+  setActiveTab: (tab: 'dashboard' | 'table' | 'buku-biaya-proses') => void;
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({
+  onOpenForm,
+  onOpenSyncModal,
+  onOpenGithubModal,
+  onOpenCacheModal,
+  onToggleNotifPopover,
+  unreadNotifCount,
+  syncSettings,
+  cacheMeta,
+  activeTab,
+  setActiveTab,
+  theme,
+  onToggleTheme
+}) => {
+  const isLight = theme === 'light';
+
+  return (
+    <header className={`sticky top-0 z-30 w-full transition-colors ${
+      isLight 
+        ? 'bg-white border-b border-slate-200 text-slate-800 shadow-sm' 
+        : 'bg-slate-900 border-b border-slate-800 text-white shadow-lg'
+    }`}>
+      <div className="max-w-[100%] xl:max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          
+          {/* Brand Logo & Name */}
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center shadow-md shadow-emerald-600/30">
+              <Scale className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className={`font-extrabold text-lg tracking-tight ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
+                  SI-PERKARA
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                  isLight 
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                    : 'bg-emerald-950 text-emerald-400 border border-emerald-800/80'
+                }`}>
+                  PA Paniai
+                </span>
+              </div>
+              <p className={`text-xs hidden sm:block ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                Sistem Manajemen Perkara & Buku Bantu Biaya Proses
+              </p>
+            </div>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div className={`hidden md:flex items-center space-x-1 p-1 rounded-xl border ${
+            isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-800/80 border-slate-700/60'
+          }`}>
+            <button
+              id="tab-dashboard-btn"
+              onClick={() => setActiveTab('dashboard')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'dashboard'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : isLight 
+                    ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60' 
+                    : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+              }`}
+            >
+              Dasbor Analitik
+            </button>
+            <button
+              id="tab-table-btn"
+              onClick={() => setActiveTab('table')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'table'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : isLight 
+                    ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60' 
+                    : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+              }`}
+            >
+              Data Perkara
+            </button>
+            <button
+              id="tab-buku-biaya-btn"
+              onClick={() => setActiveTab('buku-biaya-proses')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 ${
+                activeTab === 'buku-biaya-proses'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : isLight 
+                    ? 'text-amber-700 hover:bg-amber-100/80' 
+                    : 'text-amber-400 hover:text-white hover:bg-slate-700/50'
+              }`}
+            >
+              <span>Buku Bantu Biaya Proses</span>
+            </button>
+          </div>
+
+          {/* Action Tools & Badges */}
+          <div className="flex items-center space-x-2 sm:space-x-2.5">
+            
+            {/* Theme Toggle Button (Cerah / Gelap) */}
+            <button
+              id="theme-toggle-btn"
+              onClick={onToggleTheme}
+              title={isLight ? 'Ubah ke Mode Gelap (Dark Mode)' : 'Ubah ke Mode Cerah (Light Mode)'}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                isLight 
+                  ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100' 
+                  : 'bg-slate-800 text-amber-400 border-slate-700 hover:bg-slate-700'
+              }`}
+            >
+              {isLight ? <Sun className="w-4 h-4 text-amber-600" /> : <Moon className="w-4 h-4 text-amber-300" />}
+              <span className="hidden lg:inline">{isLight ? 'Tampilan Cerah' : 'Mode Gelap'}</span>
+            </button>
+
+            {/* Live Cache Status Badge */}
+            <button
+              id="cache-status-btn"
+              onClick={onOpenCacheModal}
+              title="Lihat status sistem caching & memori"
+              className={`hidden xl:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl text-xs transition-colors border ${
+                isLight 
+                  ? 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200' 
+                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+              }`}
+            >
+              <Database className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Cache: {cacheMeta.cacheHitCount} hits</span>
+            </button>
+
+            {/* Sync Spreadsheet Modal Trigger */}
+            <button
+              id="sync-spreadsheet-btn"
+              onClick={onOpenSyncModal}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
+                isLight
+                  ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                  : 'bg-emerald-900/40 hover:bg-emerald-900/60 text-emerald-300 border-emerald-700/60'
+              }`}
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="hidden sm:inline">Sinkron Data</span>
+            </button>
+
+            {/* GitHub Actions & Pages Modal Trigger */}
+            <button
+              id="github-actions-btn"
+              onClick={onOpenGithubModal}
+              title="GitHub Actions & GitHub Pages Deploy Manager"
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
+                isLight 
+                  ? 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200' 
+                  : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
+              }`}
+            >
+              <Github className="w-3.5 h-3.5 text-slate-700" />
+              <span className="hidden md:inline">GitHub Pages</span>
+            </button>
+
+            {/* Notification Bell Button */}
+            <button
+              id="notif-bell-btn"
+              onClick={onToggleNotifPopover}
+              className={`relative p-2 rounded-xl transition-colors ${
+                isLight 
+                  ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' 
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+              title="Notifikasi Otomatis Status Data"
+            >
+              <Bell className="w-5 h-5" />
+              {unreadNotifCount > 0 && (
+                <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white">
+                  {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                </span>
+              )}
+            </button>
+
+            {/* Input Data Button */}
+            <button
+              id="add-new-case-btn"
+              onClick={onOpenForm}
+              className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-sm transition-all transform active:scale-95"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Input Perkara</span>
+            </button>
+
+          </div>
+
+        </div>
+      </div>
+
+      {/* Mobile Tab Switching Bar */}
+      <div className={`md:hidden flex border-t px-2 py-2 space-x-1.5 ${
+        isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'
+      }`}>
+        <button
+          onClick={() => setActiveTab('dashboard')}
+          className={`flex-1 py-1.5 text-center text-[11px] font-semibold rounded-lg ${
+            activeTab === 'dashboard' 
+              ? 'bg-emerald-600 text-white font-bold' 
+              : isLight ? 'text-slate-600 bg-slate-100' : 'text-slate-400 bg-slate-800'
+          }`}
+        >
+          Dasbor
+        </button>
+        <button
+          onClick={() => setActiveTab('table')}
+          className={`flex-1 py-1.5 text-center text-[11px] font-semibold rounded-lg ${
+            activeTab === 'table' 
+              ? 'bg-emerald-600 text-white font-bold' 
+              : isLight ? 'text-slate-600 bg-slate-100' : 'text-slate-400 bg-slate-800'
+          }`}
+        >
+          Perkara
+        </button>
+        <button
+          onClick={() => setActiveTab('buku-biaya-proses')}
+          className={`flex-1 py-1.5 text-center text-[11px] font-semibold rounded-lg ${
+            activeTab === 'buku-biaya-proses' 
+              ? 'bg-amber-600 text-white font-bold' 
+              : isLight ? 'text-amber-800 bg-amber-50 border border-amber-200' : 'text-amber-400 bg-slate-800'
+          }`}
+        >
+          Buku Biaya
+        </button>
+      </div>
+    </header>
+  );
+};

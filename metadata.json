@@ -1,0 +1,6 @@
+{
+  "name": "Sistem Manajemen Perkara & Dasbor Analitik",
+  "description": "Aplikasi input data perkara terintegrasi spreadsheet/JSON dengan dasbor analitik interaktif, grafik tren bulanan, filter kategori, notifikasi otomatis, caching data, dan pembuat GitHub Actions deploy.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,86 @@
+export type JenisPerkara =
+  | 'Cerai Talak'
+  | 'Cerai Gugat'
+  | 'Penetapan Ahli Waris'
+  | 'Harta Bersama'
+  | 'Hibah'
+  | 'Wasiat'
+  | 'Hak Asuh Anak'
+  | 'Nafkah Anak'
+  | 'Dispensasi Nikah'
+  | 'Wali Adhal'
+  | 'Lainnya';
+
+export type KategoriPerkara = 'Gugatan' | 'Permohonan';
+
+export type StatusPerkara = 'Pendaftaran' | 'Diperiksa' | 'Putus' | 'Minutasi' | 'Selesai' | 'Arsip';
+
+export interface CaseRecord {
+  id: string;
+  nomorPerkara: string;      // e.g. "1/Pdt.G/2026/PA.Pan"
+  namaPihak: string;         // e.g. "Muhammad Zakaria"
+  jenisPerkara: JenisPerkara; // e.g. "Cerai Talak"
+  kategoriPerkara: KategoriPerkara; // "Gugatan" | "Permohonan"
+  saldoPerkara: number;      // e.g. 0
+  panjarAwal: number;        // e.g. 1500000
+  pengeluaran: number;       // e.g. 1500000
+  tanggalRegister: string;   // YYYY-MM-DD
+  tanggalPutus?: string;      // YYYY-MM-DD
+  status: StatusPerkara;
+  hakimKetua?: string;
+  panitera?: string;
+  ruangSidang?: string;
+  catatan?: string;
+  updatedAt: string;         // ISO timestamp
+}
+
+export interface FilterState {
+  searchQuery: string;
+  jenisPerkara: string;      // 'ALL' or specific
+  kategoriPerkara: string;   // 'ALL' or specific
+  status: string;            // 'ALL' or specific
+  tahun: string;             // 'ALL' or specific year like '2026'
+  saldoMin?: number;
+  saldoMax?: number;
+}
+
+export interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'alert';
+  timestamp: string;
+  read: boolean;
+  caseId?: string;
+  nomorPerkara?: string;
+}
+
+export interface SyncSettings {
+  autoSyncEnabled: boolean;
+  googleSheetUrl: string;
+  syncIntervalMinutes: number;
+  lastSyncedAt?: string;
+  syncStatus: 'idle' | 'syncing' | 'success' | 'error';
+  errorMessage?: string;
+}
+
+export interface CacheMetadata {
+  lastUpdated: string;
+  recordCount: number;
+  sizeBytes: number;
+  ttlMinutes: number;
+  cacheHitCount: number;
+}
+
+export interface BiayaProsesRecord {
+  id: string;
+  tanggal: string;        // YYYY-MM-DD
+  nomorPerkara: string;   // e.g. "1/Pdt.G/2026/PA.Pan"
+  uraian: string;         // e.g. "Pemotongan ATK Pendaftaran Perkara"
+  penerimaan: number;     // Rp Penerimaan
+  pengeluaran: number;    // Rp Pengeluaran
+  keterangan: string;     // KET
+  kategori: 'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Lainnya';
+  createdAt: string;
+}
+
