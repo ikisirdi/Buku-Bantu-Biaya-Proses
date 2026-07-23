@@ -55,7 +55,7 @@ export default function App() {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [selectedCaseDetail, setSelectedCaseDetail] = useState<CaseRecord | null>(null);
 
-  // Load Initial Data from Storage / Cache
+  // Load Initial Data from Storage / Cache & check for fresh public data_perkara.json
   useEffect(() => {
     const loadedCases = StorageService.getCases();
     const loadedBiayaProses = StorageService.getBiayaProsesRecords();
@@ -64,6 +64,23 @@ export default function App() {
     setBiayaProsesRecords(loadedBiayaProses);
     setNotifications(loadedNotifs);
     setCacheMeta(StorageService.getCacheMeta());
+
+    // Auto-fetch fresh synced JSON from public folder if deployed on GitHub Pages / server
+    fetch('./data_perkara.json')
+      .then(res => {
+        if (res.ok) return res.json();
+        throw new Error('Public JSON not available');
+      })
+      .then((publicRecords: CaseRecord[]) => {
+        if (Array.isArray(publicRecords) && publicRecords.length > 0) {
+          setCases(publicRecords);
+          StorageService.saveCases(publicRecords);
+          setCacheMeta(StorageService.getCacheMeta());
+        }
+      })
+      .catch(() => {
+        // Fallback or ignore if file not found locally in dev
+      });
   }, []);
 
   // Sync state changes to storage
