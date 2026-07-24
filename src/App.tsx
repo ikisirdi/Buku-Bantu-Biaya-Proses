@@ -10,7 +10,6 @@ import {
 import { StorageService } from './services/storage';
 import { SyncService } from './services/syncService';
 import { Navbar } from './components/Navbar';
-import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { CaseTable } from './components/CaseTable';
 import { BukuBiayaProses } from './components/BukuBiayaProses';
 import { CaseFormModal } from './components/CaseFormModal';
@@ -21,7 +20,7 @@ import { CacheManagerModal } from './components/CacheManagerModal';
 import { CaseDetailModal } from './components/CaseDetailModal';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'table' | 'buku-biaya-proses'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'table' | 'buku-biaya-proses'>('buku-biaya-proses');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('pa_perkara_theme_v1') as 'light' | 'dark') || 'light';
   });
@@ -193,6 +192,50 @@ export default function App() {
       `Uang sebesar Rp${amount.toLocaleString('id-ID')} dari perkara ${nomorPerkara} berhasil dipotong & masuk ke Buku Bantu Biaya Proses.`,
       'success',
       nomorPerkara
+    );
+  };
+
+  // Zero Out Case Balance handler
+  const handleZeroOutCaseBalance = (
+    caseNumber: string,
+    generatedItems: { uraian: string; amount: number; kategori: 'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Lainnya' }[]
+  ) => {
+    const today = new Date().toISOString().split('T')[0];
+    const newRecords: BiayaProsesRecord[] = generatedItems.map((item, idx) => ({
+      id: `zero-${Date.now()}-${idx}`,
+      tanggal: today,
+      nomorPerkara: caseNumber,
+      uraian: item.uraian,
+      penerimaan: 0,
+      pengeluaran: item.amount,
+      keterangan: 'Auto-Zeroing Saldo Putus',
+      kategori: item.kategori,
+      createdAt: new Date().toISOString()
+    }));
+
+    const totalExpense = generatedItems.reduce((sum, item) => sum + item.amount, 0);
+
+    const updatedRecords = [...biayaProsesRecords, ...newRecords];
+    updateBiayaProsesState(updatedRecords);
+
+    const updatedCases = cases.map(c => {
+      if (c.nomorPerkara === caseNumber) {
+        return {
+          ...c,
+          pengeluaran: (c.pengeluaran || 0) + totalExpense,
+          saldoPerkara: 0,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return c;
+    });
+    updateCasesState(updatedCases);
+
+    addNotification(
+      'Saldo Zero-Out Berhasil',
+      `Sisa saldo perkara ${caseNumber} sebesar Rp ${totalExpense.toLocaleString('id-ID')} telah dialokasikan hingga saldo menjadi Rp0.`,
+      'success',
+      caseNumber
     );
   };
 
@@ -377,18 +420,18 @@ export default function App() {
       <main className="flex-1 max-w-[100%] xl:max-w-[1700px] 2xl:max-w-[1920px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-6">
         
         {/* Dynamic View rendering */}
-        {activeTab === 'dashboard' ? (
-          <AnalyticsDashboard
+        {activeTab === 'buku-biaya-proses' ? (
+          <BukuBiayaProses
+            records={biayaProsesRecords}
             cases={cases}
-            filters={filters}
-            setFilters={setFilters}
-            onSelectCase={(record) => setSelectedCaseDetail(record)}
-            onOpenForm={() => {
-              setEditingRecord(undefined);
-              setIsFormOpen(true);
-            }}
+            onAddRecord={handleAddBiayaProsesRecord}
+            onUpdateRecord={handleUpdateBiayaProsesRecord}
+            onDeleteRecord={handleDeleteBiayaProsesRecord}
+            onPotongAtkPerkara={handlePotongAtkPerkara}
+            onZeroOutCaseBalance={handleZeroOutCaseBalance}
+            theme={theme}
           />
-        ) : activeTab === 'table' ? (
+        ) : (
           <CaseTable
             cases={cases}
             filters={filters}
@@ -399,16 +442,6 @@ export default function App() {
             }}
             onSelectCase={(record) => setSelectedCaseDetail(record)}
             onDeleteCase={handleDeleteCase}
-            theme={theme}
-          />
-        ) : (
-          <BukuBiayaProses
-            records={biayaProsesRecords}
-            cases={cases}
-            onAddRecord={handleAddBiayaProsesRecord}
-            onUpdateRecord={handleUpdateBiayaProsesRecord}
-            onDeleteRecord={handleDeleteBiayaProsesRecord}
-            onPotongAtkPerkara={handlePotongAtkPerkara}
             theme={theme}
           />
         )}

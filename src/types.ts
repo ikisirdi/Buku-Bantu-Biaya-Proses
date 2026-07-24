@@ -15,6 +15,8 @@ export type KategoriPerkara = 'Gugatan' | 'Permohonan';
 
 export type StatusPerkara = 'Pendaftaran' | 'Diperiksa' | 'Putus' | 'Minutasi' | 'Selesai' | 'Arsip';
 
+export type TingkatPerkara = 'Tingkat Pertama' | 'Tingkat Banding' | 'Kasasi / PK';
+
 export interface CaseRecord {
   id: string;
   nomorPerkara: string;      // e.g. "1/Pdt.G/2026/PA.Pan"
@@ -25,7 +27,9 @@ export interface CaseRecord {
   panjarAwal: number;        // e.g. 1500000
   pengeluaran: number;       // e.g. 1500000
   tanggalRegister: string;   // YYYY-MM-DD
+  tanggalTerimaKasasiPk?: string; // YYYY-MM-DD (tanggal diterima Ketua Majelis Kasasi/PK)
   tanggalPutus?: string;      // YYYY-MM-DD
+  tingkatPerkara?: TingkatPerkara; // 'Tingkat Pertama' | 'Tingkat Banding' | 'Kasasi / PK'
   status: StatusPerkara;
   hakimKetua?: string;
   panitera?: string;

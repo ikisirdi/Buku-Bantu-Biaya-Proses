@@ -22,8 +22,8 @@ interface NavbarProps {
   unreadNotifCount: number;
   syncSettings: SyncSettings;
   cacheMeta: CacheMetadata;
-  activeTab: 'dashboard' | 'table' | 'buku-biaya-proses';
-  setActiveTab: (tab: 'dashboard' | 'table' | 'buku-biaya-proses') => void;
+  activeTab: 'table' | 'buku-biaya-proses';
+  setActiveTab: (tab: 'table' | 'buku-biaya-proses') => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
 }
@@ -82,17 +82,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-800/80 border-slate-700/60'
           }`}>
             <button
-              id="tab-dashboard-btn"
-              onClick={() => setActiveTab('dashboard')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'dashboard'
-                  ? 'bg-emerald-600 text-white shadow-sm'
+              id="tab-buku-biaya-btn"
+              onClick={() => setActiveTab('buku-biaya-proses')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-extrabold transition-all flex items-center space-x-1.5 ${
+                activeTab === 'buku-biaya-proses'
+                  ? 'bg-amber-600 text-white shadow-sm'
                   : isLight 
-                    ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60' 
-                    : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+                    ? 'text-amber-800 hover:bg-amber-100/80' 
+                    : 'text-amber-400 hover:text-white hover:bg-slate-700/50'
               }`}
             >
-              Dasbor Analitik
+              <span>📖 Buku Bantu Biaya Proses</span>
             </button>
             <button
               id="tab-table-btn"
@@ -105,20 +105,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
-              Data Perkara
-            </button>
-            <button
-              id="tab-buku-biaya-btn"
-              onClick={() => setActiveTab('buku-biaya-proses')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 ${
-                activeTab === 'buku-biaya-proses'
-                  ? 'bg-amber-600 text-white shadow-sm'
-                  : isLight 
-                    ? 'text-amber-700 hover:bg-amber-100/80' 
-                    : 'text-amber-400 hover:text-white hover:bg-slate-700/50'
-              }`}
-            >
-              <span>Buku Bantu Biaya Proses</span>
+              Daftar Saldo & Perkara
             </button>
           </div>
 
@@ -223,14 +210,14 @@ export const Navbar: React.FC<NavbarProps> = ({
         isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'
       }`}>
         <button
-          onClick={() => setActiveTab('dashboard')}
-          className={`flex-1 py-1.5 text-center text-[11px] font-semibold rounded-lg ${
-            activeTab === 'dashboard' 
-              ? 'bg-emerald-600 text-white font-bold' 
-              : isLight ? 'text-slate-600 bg-slate-100' : 'text-slate-400 bg-slate-800'
+          onClick={() => setActiveTab('buku-biaya-proses')}
+          className={`flex-1 py-1.5 text-center text-[11px] font-bold rounded-lg ${
+            activeTab === 'buku-biaya-proses' 
+              ? 'bg-amber-600 text-white shadow-xs' 
+              : isLight ? 'text-amber-800 bg-amber-50 border border-amber-200' : 'text-amber-400 bg-slate-800'
           }`}
         >
-          Dasbor
+          📖 Buku Biaya Proses
         </button>
         <button
           onClick={() => setActiveTab('table')}
@@ -240,17 +227,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               : isLight ? 'text-slate-600 bg-slate-100' : 'text-slate-400 bg-slate-800'
           }`}
         >
-          Perkara
-        </button>
-        <button
-          onClick={() => setActiveTab('buku-biaya-proses')}
-          className={`flex-1 py-1.5 text-center text-[11px] font-semibold rounded-lg ${
-            activeTab === 'buku-biaya-proses' 
-              ? 'bg-amber-600 text-white font-bold' 
-              : isLight ? 'text-amber-800 bg-amber-50 border border-amber-200' : 'text-amber-400 bg-slate-800'
-          }`}
-        >
-          Buku Biaya
+          Daftar Saldo Perkara
         </button>
       </div>
     </header>

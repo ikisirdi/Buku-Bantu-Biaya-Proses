@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { CaseRecord, JenisPerkara, KategoriPerkara, StatusPerkara } from '../types';
-import { X, Save, Scale, AlertTriangle, Calculator } from 'lucide-react';
+import { CaseRecord, JenisPerkara, KategoriPerkara, StatusPerkara, TingkatPerkara } from '../types';
+import { X, Save, Scale, AlertTriangle, Calculator, Clock } from 'lucide-react';
 
 interface CaseFormModalProps {
   isOpen: boolean;
@@ -25,7 +25,9 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
   const [pengeluaran, setPengeluaran] = useState<number>(1000000);
   const [saldoPerkara, setSaldoPerkara] = useState<number>(0);
   const [tanggalRegister, setTanggalRegister] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [tanggalTerimaKasasiPk, setTanggalTerimaKasasiPk] = useState<string>('');
   const [tanggalPutus, setTanggalPutus] = useState<string>('');
+  const [tingkatPerkara, setTingkatPerkara] = useState<TingkatPerkara>('Tingkat Pertama');
   const [status, setStatus] = useState<StatusPerkara>('Diperiksa');
   const [hakimKetua, setHakimKetua] = useState<string>('Drs. H. Ahmad Fauzi, M.H.');
   const [panitera, setPanitera] = useState<string>('Siti Rahmah, S.H.');
@@ -42,7 +44,9 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
       setPengeluaran(recordToEdit.pengeluaran || 0);
       setSaldoPerkara(recordToEdit.saldoPerkara || 0);
       setTanggalRegister(recordToEdit.tanggalRegister || new Date().toISOString().split('T')[0]);
+      setTanggalTerimaKasasiPk(recordToEdit.tanggalTerimaKasasiPk || '');
       setTanggalPutus(recordToEdit.tanggalPutus || '');
+      setTingkatPerkara(recordToEdit.tingkatPerkara || 'Tingkat Pertama');
       setStatus(recordToEdit.status);
       setHakimKetua(recordToEdit.hakimKetua || 'Drs. H. Ahmad Fauzi, M.H.');
       setPanitera(recordToEdit.panitera || 'Siti Rahmah, S.H.');
@@ -60,7 +64,9 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
       setPengeluaran(1000000);
       setSaldoPerkara(0);
       setTanggalRegister(new Date().toISOString().split('T')[0]);
+      setTanggalTerimaKasasiPk('');
       setTanggalPutus('');
+      setTingkatPerkara('Tingkat Pertama');
       setStatus('Diperiksa');
       setCatatan('');
     }
@@ -109,7 +115,9 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
       pengeluaran,
       saldoPerkara,
       tanggalRegister,
+      tanggalTerimaKasasiPk: tanggalTerimaKasasiPk || undefined,
       tanggalPutus: tanggalPutus || undefined,
+      tingkatPerkara,
       status,
       hakimKetua,
       panitera,
@@ -219,9 +227,89 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
 
           {/* FINANCIAL SECTION (SALDO PANJAR PERKARA AUTOMATION) */}
           <div className="bg-slate-800/60 border border-slate-700/80 rounded-xl p-4 space-y-3">
-            <div className="flex items-center space-x-2 text-emerald-400">
-              <Calculator className="w-4 h-4" />
-              <h4 className="text-xs font-bold uppercase tracking-wider">Perhitungan Biaya & Saldo Panjar</h4>
+            <div className="flex items-center justify-between text-emerald-400">
+              <div className="flex items-center space-x-2">
+                <Calculator className="w-4 h-4" />
+                <h4 className="text-xs font-bold uppercase tracking-wider">Perhitungan Biaya SKUM & Saldo Panjar</h4>
+              </div>
+              <span className="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+                Acuatan SK MA / e-Court
+              </span>
+            </div>
+
+            {/* PRESET PANJAR SKMA E-COURT QUICK BUTTONS */}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-2.5">
+              <div className="text-[11px] font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
+                <span>⚡ Quick Preset SKUM e-Court MA:</span>
+                <span className="text-[10px] text-emerald-400">Klik untuk isi Panjar Awal</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handlePanjarChange(567200);
+                  }}
+                  className="bg-slate-800 hover:bg-emerald-900/40 border border-slate-700 hover:border-emerald-500/50 text-slate-200 hover:text-emerald-300 p-1.5 rounded text-left transition-all flex flex-col"
+                >
+                  <span className="font-semibold text-[10px]">Cerai Talak</span>
+                  <span className="text-emerald-400 font-bold text-xs">Rp 567.200</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handlePanjarChange(469800);
+                  }}
+                  className="bg-slate-800 hover:bg-emerald-900/40 border border-slate-700 hover:border-emerald-500/50 text-slate-200 hover:text-emerald-300 p-1.5 rounded text-left transition-all flex flex-col"
+                >
+                  <span className="font-semibold text-[10px]">Cerai Gugat</span>
+                  <span className="text-emerald-400 font-bold text-xs">Rp 469.800</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handlePanjarChange(160000);
+                  }}
+                  className="bg-slate-800 hover:bg-emerald-900/40 border border-slate-700 hover:border-emerald-500/50 text-slate-200 hover:text-emerald-300 p-1.5 rounded text-left transition-all flex flex-col"
+                >
+                  <span className="font-semibold text-[10px]">Dispensasi Kawin</span>
+                  <span className="text-emerald-400 font-bold text-xs">Rp 160.000</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handlePanjarChange(160000);
+                  }}
+                  className="bg-slate-800 hover:bg-emerald-900/40 border border-slate-700 hover:border-emerald-500/50 text-slate-200 hover:text-emerald-300 p-1.5 rounded text-left transition-all flex flex-col"
+                >
+                  <span className="font-semibold text-[10px]">Isbat Nikah</span>
+                  <span className="text-emerald-400 font-bold text-xs">Rp 160.000</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handlePanjarChange(469800);
+                  }}
+                  className="bg-slate-800 hover:bg-emerald-900/40 border border-slate-700 hover:border-emerald-500/50 text-slate-200 hover:text-emerald-300 p-1.5 rounded text-left transition-all flex flex-col"
+                >
+                  <span className="font-semibold text-[10px]">Waris / Harta Bersama</span>
+                  <span className="text-emerald-400 font-bold text-xs">Rp 469.800</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handlePanjarChange(160000);
+                  }}
+                  className="bg-slate-800 hover:bg-emerald-900/40 border border-slate-700 hover:border-emerald-500/50 text-slate-200 hover:text-emerald-300 p-1.5 rounded text-left transition-all flex flex-col"
+                >
+                  <span className="font-semibold text-[10px]">Wali Adhal / P3HP</span>
+                  <span className="text-emerald-400 font-bold text-xs">Rp 160.000</span>
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -231,11 +319,14 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
                   id="input-panjar-awal"
                   type="number"
                   min="0"
-                  step="50000"
+                  step="100"
                   value={panjarAwal}
                   onChange={(e) => handlePanjarChange(Number(e.target.value))}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 font-semibold"
                 />
+                <span className="text-[10px] text-emerald-400 block mt-1">
+                  💡 Nominal Panjar SKUM e-Court
+                </span>
               </div>
 
               <div>
@@ -244,7 +335,7 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
                   id="input-pengeluaran"
                   type="number"
                   min="0"
-                  step="50000"
+                  step="100"
                   value={pengeluaran}
                   onChange={(e) => handlePengeluaranChange(Number(e.target.value))}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 font-semibold"
@@ -261,6 +352,150 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
               </div>
             </div>
 
+            {/* TABEL RINCIAN KOMPONEN SKMA E-COURT */}
+            <details className="bg-slate-900/60 border border-slate-800 rounded-lg p-3 group text-xs text-slate-300">
+              <summary className="font-semibold text-emerald-400 cursor-pointer flex items-center justify-between select-none">
+                <span>📋 Lihat Rincian Komponen Biaya e-Court (SK Mahkamah Agung)</span>
+                <span className="text-[10px] text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+              </summary>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full text-left border-collapse text-[11px]">
+                  <thead>
+                    <tr className="border-b border-slate-700 text-slate-400">
+                      <th className="py-1">Komponen Biaya</th>
+                      <th className="py-1 text-center">CT</th>
+                      <th className="py-1 text-center">CG</th>
+                      <th className="py-1 text-center">Disp.</th>
+                      <th className="py-1 text-center">Isbat</th>
+                      <th className="py-1 text-center">Waris</th>
+                      <th className="py-1 text-center">Wali/P3HP</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800 text-slate-300">
+                    <tr>
+                      <td className="py-1 font-medium">Biaya Pendaftaran/PNBP</td>
+                      <td className="text-center">30.000</td>
+                      <td className="text-center">30.000</td>
+                      <td className="text-center">30.000</td>
+                      <td className="text-center">30.000</td>
+                      <td className="text-center">30.000</td>
+                      <td className="text-center">30.000</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1 font-medium">Biaya Pemberkasan/ATK</td>
+                      <td className="text-center">100.000</td>
+                      <td className="text-center">100.000</td>
+                      <td className="text-center">100.000</td>
+                      <td className="text-center">100.000</td>
+                      <td className="text-center">100.000</td>
+                      <td className="text-center">100.000</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1 font-medium">Panggilan I (e-Court)</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">0</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1 font-medium">PNBP Relaas Panggilan I Pemohon/Penggugat</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">10.000</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1 font-medium">Panggilan I Termohon/Tergugat (Pos)</td>
+                      <td className="text-center">95.000</td>
+                      <td className="text-center">95.000</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">95.000</td>
+                      <td className="text-center">0</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1 font-medium">PNBP Relaas Panggilan I Termohon/Tergugat</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">0</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1 font-medium">Panggilan II Termohon/Tergugat (Pos)</td>
+                      <td className="text-center">97.400</td>
+                      <td className="text-center">97.400</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">97.400</td>
+                      <td className="text-center">0</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1 font-medium">Redaksi</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">10.000</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1 font-medium">Meterai</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">10.000</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1 font-medium">PBT Putusan Kepada Termohon/Tergugat</td>
+                      <td className="text-center">97.400</td>
+                      <td className="text-center">97.400</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">97.400</td>
+                      <td className="text-center">0</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1 font-medium">PNBP Relaas PBT Putusan</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">10.000</td>
+                      <td className="text-center">0</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1 font-medium">Panggilan Ikrar Talak Kepada Termohon</td>
+                      <td className="text-center">97.400</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">0</td>
+                      <td className="text-center">0</td>
+                    </tr>
+                  </tbody>
+                  <tfoot>
+                    <tr className="font-bold text-emerald-400 border-t border-slate-700">
+                      <td className="py-1.5">TOTAL ESTIMASI PANJAR SKUM</td>
+                      <td className="text-center">567.200</td>
+                      <td className="text-center">469.800</td>
+                      <td className="text-center">160.000</td>
+                      <td className="text-center">160.000</td>
+                      <td className="text-center">469.800</td>
+                      <td className="text-center">160.000</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </details>
+
             {saldoPerkara === 0 && (
               <div className="flex items-center space-x-2 text-[11px] text-rose-400 bg-rose-950/40 border border-rose-800/60 p-2 rounded-lg">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -270,9 +505,23 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
           </div>
 
           {/* DATES & STATUS SECTION */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Tanggal Register</label>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Tingkat Perkara *</label>
+              <select
+                id="select-tingkat-perkara"
+                value={tingkatPerkara}
+                onChange={(e) => setTingkatPerkara(e.target.value as TingkatPerkara)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 font-bold focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="Tingkat Pertama">Tingkat Pertama (Batas 5 Bln)</option>
+                <option value="Tingkat Banding">Tingkat Banding (Batas 3 Bln)</option>
+                <option value="Kasasi / PK">Kasasi / PK (Batas 3 Bln)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Tanggal Register *</label>
               <input
                 id="input-tanggal-register"
                 type="date"
@@ -283,16 +532,29 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Tanggal Putus (Opsional)</label>
-              <input
-                id="input-tanggal-putus"
-                type="date"
-                value={tanggalPutus}
-                onChange={(e) => setTanggalPutus(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100"
-              />
-            </div>
+            {tingkatPerkara === 'Kasasi / PK' ? (
+              <div>
+                <label className="block text-xs font-semibold text-amber-300 mb-1">Tgl Terima (Ketua Kasasi/PK)</label>
+                <input
+                  id="input-tanggal-terima-kasasi"
+                  type="date"
+                  value={tanggalTerimaKasasiPk}
+                  onChange={(e) => setTanggalTerimaKasasiPk(e.target.value)}
+                  className="w-full bg-slate-800 border border-amber-600/80 rounded-lg px-3 py-2 text-xs text-amber-200"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Tanggal Putus (Opsional)</label>
+                <input
+                  id="input-tanggal-putus"
+                  type="date"
+                  value={tanggalPutus}
+                  onChange={(e) => setTanggalPutus(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100"
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">Status Perkara</label>

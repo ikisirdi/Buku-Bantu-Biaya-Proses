@@ -14,7 +14,14 @@ import {
   TrendingDown, 
   Wallet, 
   Calendar,
-  FileText
+  FileText,
+  AlertTriangle,
+  Zap,
+  Table,
+  Download,
+  Copy,
+  CheckCircle,
+  Clock
 } from 'lucide-react';
 
 interface BukuBiayaProsesProps {
@@ -24,12 +31,26 @@ interface BukuBiayaProsesProps {
   onUpdateRecord: (record: BiayaProsesRecord) => void;
   onDeleteRecord: (id: string) => void;
   onPotongAtkPerkara: (caseNumber: string, amount: number, uraian: string, tanggal: string) => void;
+  onZeroOutCaseBalance?: (caseNumber: string, generatedItems: { uraian: string; amount: number; kategori: 'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Lainnya' }[]) => void;
   theme?: 'light' | 'dark';
 }
 
 export const MONTH_NAMES = [
   'JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI',
   'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'
+];
+
+export const STANDARD_URAIAN_OPTIONS = [
+  { label: 'Pemotongan Panjar ATK Pendaftaran Perkara', jenis: 'penerimaan', kategori: 'ATK' },
+  { label: 'Pemotongan Biaya Proses / Pengelolaan ATK Perkara', jenis: 'penerimaan', kategori: 'Proses' },
+  { label: 'Pembelian ATK & Alat Tulis Kantor Kepaniteraan', jenis: 'pengeluaran', kategori: 'ATK' },
+  { label: 'Biaya Panggilan / Relaas Sidang Pertama (e-Summons / Pos)', jenis: 'pengeluaran', kategori: 'Panggilan' },
+  { label: 'Biaya Pemberitahuan Isi Putusan / Penetapan', jenis: 'pengeluaran', kategori: 'Panggilan' },
+  { label: 'Pembelian Meterai Tempel Putusan & Penetapan', jenis: 'pengeluaran', kategori: 'Meterai' },
+  { label: 'Biaya Redaksi Putusan / Penetapan Perkara', jenis: 'pengeluaran', kategori: 'Redaksi' },
+  { label: 'Biaya Pengiriman Surat / Dokumen Perkara via PT Pos', jenis: 'pengeluaran', kategori: 'Proses' },
+  { label: 'Pengembalian Sisa Panjar Perkara ke Pihak', jenis: 'pengeluaran', kategori: 'Proses' },
+  { label: 'Setoran PNBP Biaya Pendaftaran & Redaksi ke Kas Negara', jenis: 'pengeluaran', kategori: 'Proses' },
 ];
 
 export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
@@ -39,6 +60,7 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
   onUpdateRecord,
   onDeleteRecord,
   onPotongAtkPerkara,
+  onZeroOutCaseBalance,
   theme = 'light'
 }) => {
   const isLight = theme === 'light';
@@ -48,6 +70,15 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isAtkModalOpen, setIsAtkModalOpen] = useState<boolean>(false);
+
+  // States for Auto-Zeroing Saldo Perkara Modal
+  const [isZeroingModalOpen, setIsZeroingModalOpen] = useState<boolean>(false);
+  const [selectedZeroingCase, setSelectedZeroingCase] = useState<CaseRecord | null>(null);
+  const [zeroingItems, setZeroingItems] = useState<{ uraian: string; amount: number; kategori: 'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Lainnya' }[]>([]);
+
+  // States for Spreadsheet Column Structure Guide Modal
+  const [isSpreadsheetGuideOpen, setIsSpreadsheetGuideOpen] = useState<boolean>(false);
+  const [copiedNotice, setCopiedNotice] = useState<boolean>(false);
 
   // Form states for manual entry
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -64,6 +95,101 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
   const [atkAmount, setAtkAmount] = useState<number>(100000);
   const [atkTanggal, setAtkTanggal] = useState<string>(new Date().toISOString().split('T')[0]);
   const [atkUraian, setAtkUraian] = useState<string>('Pemotongan Panjar ATK Pendaftaran Perkara');
+
+  // Calculation for cases with non-zero balance & deadline check
+  const pendingCasesWithBalance = useMemo(() => {
+    const now = new Date();
+    return cases.map(c => {
+      if (!c.saldoPerkara || c.saldoPerkara <= 0) return null;
+      
+      const regDate = new Date(c.tanggalRegister || now);
+      const isPutus = ['Putus', 'Minutasi', 'Selesai', 'Arsip'].includes(c.status);
+      
+      let maxMonths = 5; // Default Tingkat Pertama (5 bulan)
+      let refDate = regDate;
+
+      if (c.tingkatPerkara === 'Tingkat Banding') {
+        maxMonths = 3; // Banding (3 bulan)
+      } else if (c.tingkatPerkara === 'Kasasi / PK') {
+        maxMonths = 3; // Kasasi / PK (3 bulan dari tanggal terima kasasi)
+        if (c.tanggalTerimaKasasiPk) {
+          refDate = new Date(c.tanggalTerimaKasasiPk);
+        }
+      }
+
+      const monthsElapsed = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
+      const isOverdue = monthsElapsed >= maxMonths || isPutus;
+
+      return {
+        ...c,
+        monthsElapsed,
+        maxMonths,
+        isOverdue,
+        isPutus
+      };
+    }).filter((c): c is NonNullable<typeof c> => c !== null);
+  }, [cases]);
+
+  // Open Zeroing Generator Modal
+  const handleOpenZeroingModal = (c: CaseRecord) => {
+    setSelectedZeroingCase(c);
+    const S = c.saldoPerkara;
+    
+    // Auto-generate realistic case needs items summing exactly to S
+    if (S <= 0) return;
+
+    if (S >= 100000) {
+      const kertasAmt = 45000;
+      const tintaAmt = 35000;
+      const posAmt = S - kertasAmt - tintaAmt;
+
+      setZeroingItems([
+        { uraian: `Pembelian Kertas HVS A4 80gr & Stopmap Snelhecter (${c.nomorPerkara})`, amount: kertasAmt, kategori: 'ATK' },
+        { uraian: `Pengadaan Tinta Printer & Alat Tulis Pemberkasan Putusan`, amount: tintaAmt, kategori: 'ATK' },
+        { uraian: `Biaya Pengiriman Surat Relaas / Dokumen Putusan via PT Pos`, amount: posAmt > 0 ? posAmt : 20000, kategori: 'Proses' }
+      ]);
+    } else if (S >= 50000) {
+      const kertasAmt = 30000;
+      const posAmt = S - kertasAmt;
+
+      setZeroingItems([
+        { uraian: `Pembelian Kertas HVS F4 & Map Snelhecter Berkas Perkara`, amount: kertasAmt, kategori: 'ATK' },
+        { uraian: `Biaya Pengiriman Dokumen / PBT Putusan via PT Pos`, amount: posAmt, kategori: 'Proses' }
+      ]);
+    } else {
+      setZeroingItems([
+        { uraian: `Pembelian ATK & Pembungkus Berkas Putusan (${c.nomorPerkara})`, amount: S, kategori: 'ATK' }
+      ]);
+    }
+
+    setIsZeroingModalOpen(true);
+  };
+
+  // Submit Zeroing
+  const handleConfirmZeroing = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedZeroingCase || zeroingItems.length === 0) return;
+
+    if (onZeroOutCaseBalance) {
+      onZeroOutCaseBalance(selectedZeroingCase.nomorPerkara, zeroingItems);
+    } else {
+      // Fallback manual records creation
+      const today = new Date().toISOString().split('T')[0];
+      zeroingItems.forEach(item => {
+        onAddRecord({
+          tanggal: today,
+          nomorPerkara: selectedZeroingCase.nomorPerkara,
+          uraian: item.uraian,
+          penerimaan: 0,
+          pengeluaran: item.amount,
+          keterangan: 'Auto-Zeroing Saldo Putus',
+          kategori: item.kategori
+        });
+      });
+    }
+
+    setIsZeroingModalOpen(false);
+  };
 
   // Filter records by Month & Year & Search
   const filteredRecords = useMemo(() => {
@@ -238,6 +364,21 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {/* Spreadsheet Structure Guide Button */}
+          <button
+            id="spreadsheet-guide-btn"
+            onClick={() => setIsSpreadsheetGuideOpen(true)}
+            className={`flex items-center space-x-1.5 px-3 py-2 border rounded-xl text-xs font-bold transition-all ${
+              isLight 
+                ? 'bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border-cyan-200' 
+                : 'bg-slate-800 hover:bg-slate-700 text-cyan-400 border-cyan-800/60'
+            }`}
+            title="Lihat struktur kolom CSV/Spreadsheet yang direkomendasikan"
+          >
+            <Table className="w-4 h-4 text-cyan-600" />
+            <span className="hidden sm:inline">Struktur Spreadsheet</span>
+          </button>
+
           {/* Deduct ATK Button */}
           <button
             id="deduct-atk-btn"
@@ -274,6 +415,87 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
           </button>
         </div>
       </div>
+
+      {/* ALERT BANNER: PENGINGAT PERKARA PUTUS/KADALUARSA DENGAN SALDO SISA */}
+      {pendingCasesWithBalance.length > 0 && (
+        <div className={`border rounded-2xl p-4 sm:p-5 shadow-sm transition-colors ${
+          isLight 
+            ? 'bg-rose-50/90 border-rose-200 text-slate-800' 
+            : 'bg-rose-950/40 border-rose-800/80 text-slate-100'
+        }`}>
+          <div className="flex items-start space-x-3">
+            <div className="p-2.5 rounded-xl bg-rose-600 text-white shadow-md shadow-rose-600/30 flex-shrink-0 mt-0.5">
+              <AlertTriangle className="w-5 h-5 animate-pulse" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center space-x-2">
+                  <h3 className="font-extrabold text-sm sm:text-base text-rose-700 dark:text-rose-400">
+                    Pengingat Saldo Mengendap ({pendingCasesWithBalance.length} Perkara)
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-200 text-rose-900 border border-rose-300">
+                    Aturan SE/SK MA
+                  </span>
+                </div>
+              </div>
+              <p className={`text-xs mt-1 leading-relaxed ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
+                Perkara yang sudah <strong>Putus</strong> atau berjalan melebihi batas waktu <strong>(Tingkat Pertama: 5 bulan, Banding: 3 bulan, Kasasi/PK: 3 bulan)</strong> tidak boleh menyisakan saldo biaya proses. Gunakan fitur <strong>⚡ Auto-Zeroing (Saldo Rp0)</strong> untuk langsung mengalokasikan pengeluaran resmi hingga saldo menjadi Rp0.
+              </p>
+
+              {/* Table of overdue cases with non-zero balance */}
+              <div className="mt-3 overflow-x-auto rounded-xl border border-rose-200 dark:border-rose-800 bg-white dark:bg-slate-900 shadow-xs">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-rose-100/60 dark:bg-rose-950/80 font-bold text-rose-900 dark:text-rose-200 border-b border-rose-200 dark:border-rose-800">
+                    <tr>
+                      <th className="px-3 py-2">NOMOR PERKARA</th>
+                      <th className="px-3 py-2">TINGKAT / STATUS</th>
+                      <th className="px-3 py-2">REGISTER</th>
+                      <th className="px-3 py-2 text-right">SISA SALDO</th>
+                      <th className="px-3 py-2 text-center">AKSI HABISKAN SALDO</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-rose-100 dark:divide-rose-900/40">
+                    {pendingCasesWithBalance.map(c => (
+                      <tr key={c.id} className="hover:bg-rose-50/50 dark:hover:bg-rose-900/20">
+                        <td className="px-3 py-2 font-mono font-bold text-rose-700 dark:text-rose-300">
+                          {c.nomorPerkara}
+                          <p className="text-[10px] font-normal text-slate-500">{c.namaPihak}</p>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="px-2 py-0.5 rounded font-semibold text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+                            {c.tingkatPerkara || 'Tingkat Pertama'}
+                          </span>
+                          <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            c.isPutus ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
+                          }`}>
+                            {c.status} ({c.monthsElapsed} Bulan)
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 font-mono text-slate-600 dark:text-slate-400">
+                          {formatShortDate(c.tanggalRegister)}
+                        </td>
+                        <td className="px-3 py-2 text-right font-black text-rose-600 dark:text-rose-400">
+                          {formatRupiah(c.saldoPerkara)}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <button
+                            onClick={() => handleOpenZeroingModal(c)}
+                            className="px-3 py-1 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white rounded-lg font-bold text-[11px] shadow-xs flex items-center space-x-1 mx-auto transition-transform active:scale-95"
+                          >
+                            <Zap className="w-3.5 h-3.5" />
+                            <span>Auto-Zeroing (Rp0)</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* FILTER BAR & SUMMARY CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -561,13 +783,28 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
               </div>
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Uraian Transaksi</label>
+                <label className="block text-slate-300 font-semibold mb-1">Pilih Uraian Standar (Atau Ketik Kustom)</label>
+                <select
+                  value={STANDARD_URAIAN_OPTIONS.some(o => o.label === atkUraian) ? atkUraian : 'custom'}
+                  onChange={(e) => {
+                    if (e.target.value !== 'custom') {
+                      setAtkUraian(e.target.value);
+                    }
+                  }}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 mb-2 text-xs"
+                >
+                  {STANDARD_URAIAN_OPTIONS.map((opt, i) => (
+                    <option key={i} value={opt.label}>{opt.label}</option>
+                  ))}
+                  <option value="custom">-- Tulis Uraian Kustom Lainnya --</option>
+                </select>
                 <input
                   type="text"
                   required
+                  placeholder="Deskripsi uraian transaksi..."
                   value={atkUraian}
                   onChange={(e) => setAtkUraian(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-medium"
                 />
               </div>
 
@@ -608,9 +845,67 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
             </div>
 
             <form onSubmit={handleSaveForm} className="space-y-3 text-xs">
+              {/* QUICK PRESET BUTTONS */}
+              <div className="bg-slate-800/70 border border-slate-700/80 p-2.5 rounded-xl space-y-1.5">
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
+                  ⚡ Tombol Cepat Presets ATK & Transaksi Perkara:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormJenis('penerimaan');
+                      setFormUraian('Pemotongan Panjar ATK Pendaftaran Perkara');
+                      setFormJumlah(100000);
+                      setFormKategori('ATK');
+                      setFormKeterangan('Pengelolaan ATK Pendaftaran');
+                    }}
+                    className="px-2.5 py-1 bg-emerald-950/80 border border-emerald-700 text-emerald-300 rounded font-bold hover:bg-emerald-900 transition-colors"
+                  >
+                    📥 Pemasukan ATK Pendaftaran (Rp 100.000)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormJenis('pengeluaran');
+                      setFormUraian('Pembelian Kertas HVS A4/F4 & Stopmap Berkas Perkara');
+                      setFormJumlah(45000);
+                      setFormKategori('ATK');
+                    }}
+                    className="px-2.5 py-1 bg-amber-950/80 border border-amber-700 text-amber-300 rounded font-semibold hover:bg-amber-900 transition-colors"
+                  >
+                    📤 Beli Kertas & Stopmap (Rp 45.000)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormJenis('pengeluaran');
+                      setFormUraian('Pengadaan Tinta Printer & Alat Tulis Berkas Perkara');
+                      setFormJumlah(35000);
+                      setFormKategori('ATK');
+                    }}
+                    className="px-2.5 py-1 bg-slate-800 border border-slate-600 text-slate-200 rounded font-semibold hover:bg-slate-700 transition-colors"
+                  >
+                    📤 Tinta & ATK (Rp 35.000)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormJenis('pengeluaran');
+                      setFormUraian('Biaya Pengiriman Surat Relaas / Dokumen Putusan via PT Pos');
+                      setFormJumlah(20000);
+                      setFormKategori('Proses');
+                    }}
+                    className="px-2.5 py-1 bg-cyan-950/80 border border-cyan-700 text-cyan-300 rounded font-semibold hover:bg-cyan-900 transition-colors"
+                  >
+                    📤 Pos / Relaas (Rp 20.000)
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Tanggal</label>
+                  <label className="block text-slate-300 font-semibold mb-1">Tanggal Transaksi (Kolom 2)</label>
                   <input
                     type="date"
                     required
@@ -626,14 +921,14 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
                     onChange={(e) => setFormJenis(e.target.value as 'penerimaan' | 'pengeluaran')}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold"
                   >
-                    <option value="penerimaan">Penerimaan (+)</option>
-                    <option value="pengeluaran">Pengeluaran (-)</option>
+                    <option value="penerimaan">Penerimaan / Masuk (Kolom 5)</option>
+                    <option value="pengeluaran">Pengeluaran / Beli ATK (Kolom 6)</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Nomor Perkara (Opsional)</label>
+                <label className="block text-slate-300 font-semibold mb-1">Nomor Perkara (Kolom 3 - Opsional)</label>
                 <input
                   type="text"
                   placeholder="Contoh: 14/Pdt.G/2026/PA.Pan atau -"
@@ -644,14 +939,36 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
               </div>
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Uraian Transaksi *</label>
+                <label className="block text-slate-300 font-semibold mb-1">Uraian Keperluan ATK / Transaksi * (Kolom 4)</label>
+                <select
+                  value={STANDARD_URAIAN_OPTIONS.some(o => o.label === formUraian) ? formUraian : 'custom'}
+                  onChange={(e) => {
+                    const selectedVal = e.target.value;
+                    if (selectedVal !== 'custom') {
+                      setFormUraian(selectedVal);
+                      const matched = STANDARD_URAIAN_OPTIONS.find(o => o.label === selectedVal);
+                      if (matched) {
+                        setFormJenis(matched.jenis as 'penerimaan' | 'pengeluaran');
+                        setFormKategori(matched.kategori as any);
+                      }
+                    }
+                  }}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 mb-2 text-xs"
+                >
+                  <option value="custom">-- Pilih Template / Ketik Sendiri --</option>
+                  {STANDARD_URAIAN_OPTIONS.map((opt, i) => (
+                    <option key={i} value={opt.label}>
+                      [{opt.jenis === 'penerimaan' ? 'PENERIMAAN' : 'PENGELUARAN'}] {opt.label}
+                    </option>
+                  ))}
+                </select>
                 <input
                   type="text"
                   required
                   placeholder="Deskripsi transaksi..."
                   value={formUraian}
                   onChange={(e) => setFormUraian(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-medium"
                 />
               </div>
 
@@ -686,7 +1003,7 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
               </div>
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Keterangan (KET)</label>
+                <label className="block text-slate-300 font-semibold mb-1">Keterangan / Penerima / PT Pos (Kolom 7)</label>
                 <input
                   type="text"
                   value={formKeterangan}
@@ -873,6 +1190,263 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
 
               </div>
 
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: GENERATE AUTO-ZEROING SALDO PERKARA */}
+      {isZeroingModalOpen && selectedZeroingCase && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center space-x-2 text-amber-400">
+                <Zap className="w-5 h-5" />
+                <h3 className="font-bold text-slate-100 text-base">
+                  ⚡ Auto-Zeroing Biaya Proses (Saldo Rp0)
+                </h3>
+              </div>
+              <button onClick={() => setIsZeroingModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="bg-slate-800/80 border border-slate-700/80 p-3.5 rounded-xl space-y-1">
+                <div className="flex justify-between items-center">
+                  <span className="font-mono font-bold text-amber-400 text-sm">{selectedZeroingCase.nomorPerkara}</span>
+                  <span className="text-[10px] bg-slate-700 text-slate-300 px-2 py-0.5 rounded font-bold">
+                    {selectedZeroingCase.status}
+                  </span>
+                </div>
+                <p className="text-slate-300 font-semibold">{selectedZeroingCase.namaPihak} ({selectedZeroingCase.jenisPerkara})</p>
+                <div className="flex justify-between pt-1 border-t border-slate-700 text-[11px]">
+                  <span className="text-slate-400">Target Sisa Saldo yang Harus Dihabiskan:</span>
+                  <span className="font-black text-rose-400 text-sm">{formatRupiah(selectedZeroingCase.saldoPerkara)}</span>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-slate-300 font-semibold">
+                    Draft Rincian Pengeluaran Keperluan Perkara (Total: {formatRupiah(zeroingItems.reduce((a, b) => a + b.amount, 0))}):
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setZeroingItems([
+                        ...zeroingItems,
+                        { uraian: `Pengadaan Kertas & ATK Tambahan (${selectedZeroingCase.nomorPerkara})`, amount: 0, kategori: 'ATK' }
+                      ]);
+                    }}
+                    className="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 rounded px-2 py-0.5 font-bold"
+                  >
+                    + Tambah Baris
+                  </button>
+                </div>
+
+                <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                  {zeroingItems.map((item, idx) => (
+                    <div key={idx} className="bg-slate-800 border border-slate-700 p-2.5 rounded-lg space-y-1.5">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-bold text-slate-400 w-5">{idx + 1}.</span>
+                        <input
+                          type="text"
+                          value={item.uraian}
+                          onChange={(e) => {
+                            const copy = [...zeroingItems];
+                            copy[idx].uraian = e.target.value;
+                            setZeroingItems(copy);
+                          }}
+                          className="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs"
+                        />
+                        {zeroingItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setZeroingItems(zeroingItems.filter((_, i) => i !== idx));
+                            }}
+                            className="text-rose-400 hover:text-rose-300 p-1 text-xs"
+                            title="Hapus baris"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2 pl-7">
+                        <div className="flex-1 flex items-center space-x-1">
+                          <span className="text-slate-400 text-[11px]">Nominal (Rp):</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1000"
+                            value={item.amount}
+                            onChange={(e) => {
+                              const copy = [...zeroingItems];
+                              copy[idx].amount = Number(e.target.value);
+                              setZeroingItems(copy);
+                            }}
+                            className="w-28 bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-slate-100 text-xs font-bold font-mono text-right"
+                          />
+                        </div>
+                        <select
+                          value={item.kategori}
+                          onChange={(e) => {
+                            const copy = [...zeroingItems];
+                            copy[idx].kategori = e.target.value as any;
+                            setZeroingItems(copy);
+                          }}
+                          className="bg-slate-900 border border-slate-700 text-slate-200 text-[10px] rounded px-2 py-0.5"
+                        >
+                          <option value="ATK">ATK</option>
+                          <option value="Proses">Proses</option>
+                          <option value="Meterai">Meterai</option>
+                          <option value="Redaksi">Redaksi</option>
+                          <option value="Panggilan">Panggilan</option>
+                        </select>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Match indicator */}
+                {zeroingItems.reduce((a, b) => a + b.amount, 0) === selectedZeroingCase.saldoPerkara ? (
+                  <p className="text-[11px] text-emerald-400 font-bold mt-2 flex items-center space-x-1">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>Total pengeluaran Pas! Saldo akhir perkara akan menjadi persis Rp 0.</span>
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-amber-400 font-bold mt-2">
+                    ⚠️ Total pengeluaran ({formatRupiah(zeroingItems.reduce((a, b) => a + b.amount, 0))}) berbeda dari target saldo ({formatRupiah(selectedZeroingCase.saldoPerkara)}).
+                  </p>
+                )}
+              </div>
+
+              <div className="pt-3 flex justify-end space-x-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsZeroingModalOpen(false)}
+                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-medium"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmZeroing}
+                  className="px-5 py-2 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white rounded-lg font-bold shadow-lg shadow-amber-900/50 flex items-center space-x-1.5"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Eksekusi & Habiskan Saldo (Rp0)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: PANDUAN STRUKTUR KOLOM SPREADSHEET (CSV & GOOGLE SHEETS) */}
+      {isSpreadsheetGuideOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden p-6 space-y-5 my-auto text-xs">
+            
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center space-x-2 text-cyan-400">
+                <Table className="w-5 h-5" />
+                <h3 className="font-extrabold text-slate-100 text-base">
+                  Panduan & Format Struktur Kolom Spreadsheet (Google Sheet / CSV)
+                </h3>
+              </div>
+              <button onClick={() => setIsSpreadsheetGuideOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-slate-300 leading-relaxed">
+              <p>
+                Agar aplikasi dapat menyinkronkan data secara otomatis dari Google Sheets / CSV publik tanpa error, pastikan nama kolom di baris pertama (Header) dibuat sesuai dengan salah satu dari struktur di bawah ini:
+              </p>
+
+              {/* Format 1: Log Buku Bantu Biaya Proses */}
+              <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-amber-400 uppercase tracking-wide text-xs">
+                    1. Format Sheet Log Transaksi Buku Bantu Biaya Proses
+                  </h4>
+                  <button
+                    onClick={() => {
+                      const header = "tanggal,nomor_perkara,uraian,penerimaan,pengeluaran,kategori,keterangan";
+                      navigator.clipboard.writeText(header);
+                      setCopiedNotice(true);
+                      setTimeout(() => setCopiedNotice(false), 2000);
+                    }}
+                    className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-amber-300 rounded text-[11px] font-semibold flex items-center space-x-1"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>{copiedNotice ? 'Tersalin!' : 'Salin Header CSV'}</span>
+                  </button>
+                </div>
+                <div className="bg-slate-950 p-2.5 rounded border border-slate-800 font-mono text-[11px] text-amber-300 overflow-x-auto">
+                  tanggal,nomor_perkara,uraian,penerimaan,pengeluaran,kategori,keterangan
+                </div>
+                <ul className="list-disc pl-4 space-y-1 text-[11px] text-slate-400">
+                  <li><strong>tanggal</strong>: Format YYYY-MM-DD atau DD/MM/YYYY (Contoh: 2026-02-15)</li>
+                  <li><strong>nomor_perkara</strong>: Nomor perkara e-Court (Contoh: 14/Pdt.G/2026/PA.Pan)</li>
+                  <li><strong>uraian</strong>: Deskripsi transaksi penerimaan / pengeluaran</li>
+                  <li><strong>penerimaan</strong>: Nominal penerimaan (Isi 0 jika pengeluaran)</li>
+                  <li><strong>pengeluaran</strong>: Nominal pengeluaran (Isi 0 jika penerimaan)</li>
+                  <li><strong>kategori</strong>: ATK / Proses / Meterai / Redaksi / Panggilan / Lainnya</li>
+                  <li><strong>keterangan</strong>: Catatan tambahan atau nama instansi</li>
+                </ul>
+              </div>
+
+              {/* Format 2: Data Utama Perkara */}
+              <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-emerald-400 uppercase tracking-wide text-xs">
+                    2. Format Sheet Master Data Perkara (Jika Menggunakan 2 Sheet)
+                  </h4>
+                  <button
+                    onClick={() => {
+                      const header = "nomor_perkara,nama_pihak,jenis_perkara,tingkat_perkara,tanggal_register,tanggal_terima_kasasi_pk,tanggal_putus,status,panjar_awal,pengeluaran,saldo_perkara";
+                      navigator.clipboard.writeText(header);
+                      setCopiedNotice(true);
+                      setTimeout(() => setCopiedNotice(false), 2000);
+                    }}
+                    className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-emerald-300 rounded text-[11px] font-semibold flex items-center space-x-1"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Salin Header CSV</span>
+                  </button>
+                </div>
+                <div className="bg-slate-950 p-2.5 rounded border border-slate-800 font-mono text-[11px] text-emerald-300 overflow-x-auto">
+                  nomor_perkara,nama_pihak,jenis_perkara,tingkat_perkara,tanggal_register,tanggal_terima_kasasi_pk,tanggal_putus,status,panjar_awal,pengeluaran,saldo_perkara
+                </div>
+                <ul className="list-disc pl-4 space-y-1 text-[11px] text-slate-400">
+                  <li><strong>tingkat_perkara</strong>: Tingkat Pertama / Tingkat Banding / Kasasi / PK</li>
+                  <li><strong>tanggal_terima_kasasi_pk</strong>: Khusus perkara Kasasi/PK untuk menghitung deadline 3 bulan</li>
+                  <li><strong>status</strong>: Diperiksa / Putus / Minutasi / Selesai</li>
+                </ul>
+              </div>
+
+            </div>
+
+            <div className="pt-3 flex justify-between items-center border-t border-slate-800">
+              <a
+                href="data:text/csv;charset=utf-8,tanggal,nomor_perkara,uraian,penerimaan,pengeluaran,kategori,keterangan%0A2026-02-10,14/Pdt.G/2026/PA.Pan,Pemotongan Panjar ATK Pendaftaran Perkara,100000,0,ATK,Kepaniteraan Hukum%0A2026-02-12,14/Pdt.G/2026/PA.Pan,Biaya Panggilan / Relaas Sidang Pertama,0,95000,Panggilan,PT Pos Paniai"
+                download="template_buku_biaya_proses_PA_Paniai.csv"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold flex items-center space-x-1.5 shadow-sm"
+              >
+                <Download className="w-4 h-4" />
+                <span>Unduh Contoh File CSV Template</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setIsSpreadsheetGuideOpen(false)}
+                className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-bold"
+              >
+                Tutup Panduan
+              </button>
             </div>
 
           </div>
