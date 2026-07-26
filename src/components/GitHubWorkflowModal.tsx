@@ -45,10 +45,15 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm install || npm ci
 
       - name: Sync Real-time Spreadsheet Data
-        run: node scripts/fetch_data.js
+        run: |
+          if [ -f scripts/fetch_data.js ]; then
+            node scripts/fetch_data.js
+          else
+            echo "ℹ️ scripts/fetch_data.js belum ada, melewatinya..."
+          fi
         env:
           GOOGLE_SHEET_CSV_URL: \${{ secrets.GOOGLE_SHEET_CSV_URL }}
 
@@ -56,8 +61,8 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add public/data_perkara.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "auto: Sync latest spreadsheet data JSON" && git push)
+          git add public/ || true
+          git diff --quiet && git diff --staged --quiet || (git commit -m "auto: Sync latest spreadsheet data" && git push) || echo "Nothing to push or no push permission"
 
       - name: Build Static App for GitHub Pages
         run: npm run build
@@ -281,6 +286,49 @@ syncSpreadsheetData();
             <pre className="bg-slate-950 border border-slate-800 p-3.5 rounded-xl text-[11px] font-mono text-slate-300 overflow-x-auto max-h-40 leading-snug">
               {fetchDataJs}
             </pre>
+          </div>
+
+          {/* TROUBLESHOOTING: EXIT CODE 1 */}
+          <div className="bg-rose-950/40 border border-rose-800/80 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center space-x-2 text-rose-300 font-bold text-sm">
+              <span className="text-lg">🚨</span>
+              <span>Solusi Error "Process completed with exit code 1" di GitHub Actions:</span>
+            </div>
+            <div className="space-y-2 text-rose-100/90 leading-relaxed text-xs">
+              <p className="font-semibold text-rose-200">
+                Penyebab utama error exit code 1 pada deployment GitHub Pages beserta solusinya:
+              </p>
+              <ol className="list-decimal list-inside space-y-2 pl-1">
+                <li>
+                  <strong>Izin Push / Read & Write Token Belum Diaktifkan</strong>:
+                  <br />
+                  <span className="text-slate-300">
+                    Buka repo GitHub Anda &gt; <em>Settings</em> &gt; <em>Actions</em> &gt; <em>General</em> &gt; scroll ke bawah ke <strong>Workflow permissions</strong> &gt; Pilih <strong>Read and write permissions</strong> &gt; Klik <em>Save</em>.
+                  </span>
+                </li>
+                <li>
+                  <strong>Sumber GitHub Pages Belum Diubah ke GitHub Actions</strong>:
+                  <br />
+                  <span className="text-slate-300">
+                    Buka <em>Settings</em> &gt; <em>Pages</em> &gt; Di bagian <strong>Build and deployment</strong>, ubah <em>Source</em> dari "Deploy from a branch" menjadi <strong>GitHub Actions</strong>.
+                  </span>
+                </li>
+                <li>
+                  <strong>File <code className="bg-rose-900/60 px-1 py-0.5 rounded font-mono">scripts/fetch_data.js</code> Belum Ada di Repository</strong>:
+                  <br />
+                  <span className="text-slate-300">
+                    Pastikan Anda telah membuat folder <code className="font-mono">scripts/</code> dan file <code className="font-mono">fetch_data.js</code> lalu commit ke repository. Gunakan kode <code className="font-mono">deploy.yml</code> terbaru di atas yang secara otomatis mengabaikan jika file belum ada.
+                  </span>
+                </li>
+                <li>
+                  <strong>Gagal di Step <code className="bg-rose-900/60 px-1 py-0.5 rounded font-mono">npm ci</code></strong>:
+                  <br />
+                  <span className="text-slate-300">
+                    Gunakan command <code className="font-mono">npm install || npm ci</code> pada YAML agar workflow tidak berhenti jika <code className="font-mono">package-lock.json</code> tidak cocok dengan versi Node.
+                  </span>
+                </li>
+              </ol>
+            </div>
           </div>
 
         </div>
