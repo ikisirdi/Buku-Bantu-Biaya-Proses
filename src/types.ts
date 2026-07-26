@@ -62,6 +62,7 @@ export interface NotificationItem {
 export interface SyncSettings {
   autoSyncEnabled: boolean;
   googleSheetUrl: string;
+  googleSheetWebhookUrl?: string;
   syncIntervalMinutes: number;
   lastSyncedAt?: string;
   syncStatus: 'idle' | 'syncing' | 'success' | 'error';

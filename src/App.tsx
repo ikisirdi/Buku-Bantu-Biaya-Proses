@@ -144,6 +144,16 @@ export default function App() {
     });
   }, []);
 
+  const getWebhookUrl = (settings: SyncSettings): string | undefined => {
+    if (settings.googleSheetWebhookUrl && settings.googleSheetWebhookUrl.trim().length > 0) {
+      return settings.googleSheetWebhookUrl.trim();
+    }
+    if (settings.googleSheetUrl && settings.googleSheetUrl.trim().includes('script.google.com')) {
+      return settings.googleSheetUrl.trim();
+    }
+    return undefined;
+  };
+
   // Handlers for Buku Bantu Biaya Proses
   const handleAddBiayaProsesRecord = (record: Omit<BiayaProsesRecord, 'id' | 'createdAt'>) => {
     const newRecord: BiayaProsesRecord = {
@@ -153,6 +163,12 @@ export default function App() {
     };
     const updated = [...biayaProsesRecords, newRecord];
     updateBiayaProsesState(updated);
+
+    const webhook = getWebhookUrl(syncSettings);
+    if (webhook) {
+      SyncService.postToWebhook(webhook, 'add_biaya_proses', newRecord);
+    }
+
     addNotification(
       'Transaksi Log Biaya Proses',
       `Berhasil mencatat log transaksi: ${newRecord.uraian} (${newRecord.penerimaan > 0 ? `Penerimaan Rp${newRecord.penerimaan.toLocaleString('id-ID')}` : `Pengeluaran Rp${newRecord.pengeluaran.toLocaleString('id-ID')}`}).`,
@@ -164,6 +180,12 @@ export default function App() {
   const handleUpdateBiayaProsesRecord = (record: BiayaProsesRecord) => {
     const updated = biayaProsesRecords.map(r => r.id === record.id ? record : r);
     updateBiayaProsesState(updated);
+
+    const webhook = getWebhookUrl(syncSettings);
+    if (webhook) {
+      SyncService.postToWebhook(webhook, 'add_biaya_proses', record);
+    }
+
     addNotification('Log Transaksi Diperbarui', `Log transaksi ${record.uraian} berhasil diperbarui.`, 'info');
   };
 
@@ -187,6 +209,12 @@ export default function App() {
     };
     const updated = [...biayaProsesRecords, newRecord];
     updateBiayaProsesState(updated);
+
+    const webhook = getWebhookUrl(syncSettings);
+    if (webhook) {
+      SyncService.postToWebhook(webhook, 'add_biaya_proses', newRecord);
+    }
+
     addNotification(
       'Pemotongan ATK Perkara',
       `Uang sebesar Rp${amount.toLocaleString('id-ID')} dari perkara ${nomorPerkara} berhasil dipotong & masuk ke Buku Bantu Biaya Proses.`,
@@ -218,6 +246,13 @@ export default function App() {
     const updatedRecords = [...biayaProsesRecords, ...newRecords];
     updateBiayaProsesState(updatedRecords);
 
+    const webhook = getWebhookUrl(syncSettings);
+    if (webhook) {
+      newRecords.forEach(rec => {
+        SyncService.postToWebhook(webhook, 'add_biaya_proses', rec);
+      });
+    }
+
     const updatedCases = cases.map(c => {
       if (c.nomorPerkara === caseNumber) {
         return {
@@ -241,8 +276,11 @@ export default function App() {
 
   // Save/Update Case Record
   const handleSaveCase = (formData: Partial<CaseRecord>) => {
+    const webhook = getWebhookUrl(syncSettings);
+
     if (formData.id) {
       // Edit existing
+      let updatedCaseRecord: CaseRecord | undefined;
       const updated = cases.map(c => {
         if (c.id === formData.id) {
           const isSaldoZero = formData.saldoPerkara === 0;
@@ -261,15 +299,20 @@ export default function App() {
               formData.nomorPerkara
             );
           }
-          return {
+          updatedCaseRecord = {
             ...c,
             ...formData,
             updatedAt: new Date().toISOString()
           } as CaseRecord;
+          return updatedCaseRecord;
         }
         return c;
       });
       updateCasesState(updated);
+
+      if (webhook && updatedCaseRecord) {
+        SyncService.postToWebhook(webhook, 'update_case', updatedCaseRecord);
+      }
     } else {
       // Create new
       const newRecord: CaseRecord = {
@@ -278,10 +321,12 @@ export default function App() {
         namaPihak: formData.namaPihak || 'Pihak Berperkara',
         jenisPerkara: formData.jenisPerkara || 'Cerai Gugat',
         kategoriPerkara: formData.kategoriPerkara || 'Gugatan',
+        tingkatPerkara: formData.tingkatPerkara || 'Tingkat Pertama',
         saldoPerkara: formData.saldoPerkara ?? 0,
         panjarAwal: formData.panjarAwal ?? 1000000,
         pengeluaran: formData.pengeluaran ?? 1000000,
         tanggalRegister: formData.tanggalRegister || new Date().toISOString().split('T')[0],
+        tanggalTerimaKasasiPk: formData.tanggalTerimaKasasiPk,
         tanggalPutus: formData.tanggalPutus,
         status: formData.status || 'Pendaftaran',
         hakimKetua: formData.hakimKetua,
@@ -294,8 +339,8 @@ export default function App() {
       const updated = [newRecord, ...cases];
       updateCasesState(updated);
 
-      if (syncSettings.googleSheetWebhookUrl) {
-        SyncService.postToWebhook(syncSettings.googleSheetWebhookUrl, 'add_case', newRecord);
+      if (webhook) {
+        SyncService.postToWebhook(webhook, 'add_case', newRecord);
       }
 
       addNotification(
