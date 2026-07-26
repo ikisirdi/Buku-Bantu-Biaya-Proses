@@ -43,7 +43,11 @@ export const MONTH_NAMES = [
 export const STANDARD_URAIAN_OPTIONS = [
   { label: 'Pemotongan Panjar ATK Pendaftaran Perkara', jenis: 'penerimaan', kategori: 'ATK' },
   { label: 'Pemotongan Biaya Proses / Pengelolaan ATK Perkara', jenis: 'penerimaan', kategori: 'Proses' },
-  { label: 'Pembelian ATK & Alat Tulis Kantor Kepaniteraan', jenis: 'pengeluaran', kategori: 'ATK' },
+  { label: 'Pengadaan Kertas HVS A4/F4 Berkas Perkara', jenis: 'pengeluaran', kategori: 'ATK' },
+  { label: 'Pengadaan Stopmap & Map Perkara', jenis: 'pengeluaran', kategori: 'ATK' },
+  { label: 'Pengadaan Tinta Printer Berkas Perkara', jenis: 'pengeluaran', kategori: 'ATK' },
+  { label: 'Pengadaan Ballpoint, Pensil & Tipe-X', jenis: 'pengeluaran', kategori: 'ATK' },
+  { label: 'Pengadaan Stapler, Isi Staples & Paper Clip', jenis: 'pengeluaran', kategori: 'ATK' },
   { label: 'Biaya Panggilan / Relaas Sidang Pertama (e-Summons / Pos)', jenis: 'pengeluaran', kategori: 'Panggilan' },
   { label: 'Biaya Pemberitahuan Isi Putusan / Penetapan', jenis: 'pengeluaran', kategori: 'Panggilan' },
   { label: 'Pembelian Meterai Tempel Putusan & Penetapan', jenis: 'pengeluaran', kategori: 'Meterai' },
@@ -846,9 +850,9 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
 
             <form onSubmit={handleSaveForm} className="space-y-3 text-xs">
               {/* QUICK PRESET BUTTONS */}
-              <div className="bg-slate-800/70 border border-slate-700/80 p-2.5 rounded-xl space-y-1.5">
+              <div className="bg-slate-800/70 border border-slate-700/80 p-2.5 rounded-xl space-y-2">
                 <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
-                  ⚡ Tombol Cepat Presets ATK & Transaksi Perkara:
+                  ⚡ Tombol Cepat Preset Detail ATK & Transaksi:
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   <button
@@ -860,7 +864,7 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
                       setFormKategori('ATK');
                       setFormKeterangan('Pengelolaan ATK Pendaftaran');
                     }}
-                    className="px-2.5 py-1 bg-emerald-950/80 border border-emerald-700 text-emerald-300 rounded font-bold hover:bg-emerald-900 transition-colors"
+                    className="px-2.5 py-1 bg-emerald-950/90 border border-emerald-700 text-emerald-300 rounded font-bold hover:bg-emerald-900 transition-colors"
                   >
                     📥 Pemasukan ATK Pendaftaran (Rp 100.000)
                   </button>
@@ -868,25 +872,79 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
                     type="button"
                     onClick={() => {
                       setFormJenis('pengeluaran');
-                      setFormUraian('Pembelian Kertas HVS A4/F4 & Stopmap Berkas Perkara');
+                      setFormUraian('Pengadaan Kertas HVS A4/F4 Berkas Perkara');
                       setFormJumlah(45000);
                       setFormKategori('ATK');
+                      setFormKeterangan('Beli Kertas HVS');
                     }}
                     className="px-2.5 py-1 bg-amber-950/80 border border-amber-700 text-amber-300 rounded font-semibold hover:bg-amber-900 transition-colors"
                   >
-                    📤 Beli Kertas & Stopmap (Rp 45.000)
+                    📄 Kertas HVS (Rp 45.000)
                   </button>
                   <button
                     type="button"
                     onClick={() => {
                       setFormJenis('pengeluaran');
-                      setFormUraian('Pengadaan Tinta Printer & Alat Tulis Berkas Perkara');
+                      setFormUraian('Pengadaan Stopmap & Map Perkara');
+                      setFormJumlah(15000);
+                      setFormKategori('ATK');
+                      setFormKeterangan('Stopmap Berkas');
+                    }}
+                    className="px-2.5 py-1 bg-amber-950/80 border border-amber-700 text-amber-200 rounded font-semibold hover:bg-amber-900 transition-colors"
+                  >
+                    📁 Stopmap Perkara (Rp 15.000)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormJenis('pengeluaran');
+                      setFormUraian('Pengadaan Tinta Printer Berkas Perkara');
                       setFormJumlah(35000);
                       setFormKategori('ATK');
+                      setFormKeterangan('Tinta Printer');
+                    }}
+                    className="px-2.5 py-1 bg-blue-950/80 border border-blue-700 text-blue-300 rounded font-semibold hover:bg-blue-900 transition-colors"
+                  >
+                    🖨️ Tinta Printer (Rp 35.000)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormJenis('pengeluaran');
+                      setFormUraian('Pengadaan Ballpoint, Pensil & Tipe-X');
+                      setFormJumlah(15000);
+                      setFormKategori('ATK');
+                      setFormKeterangan('Ballpoint & Alat Tulis');
+                    }}
+                    className="px-2.5 py-1 bg-indigo-950/80 border border-indigo-700 text-indigo-300 rounded font-semibold hover:bg-indigo-900 transition-colors"
+                  >
+                    ✏️ Ballpoint & Alat Tulis (Rp 15.000)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormJenis('pengeluaran');
+                      setFormUraian('Pengadaan Stapler, Isi Staples & Paper Clip');
+                      setFormJumlah(10000);
+                      setFormKategori('ATK');
+                      setFormKeterangan('Staples & Klip');
                     }}
                     className="px-2.5 py-1 bg-slate-800 border border-slate-600 text-slate-200 rounded font-semibold hover:bg-slate-700 transition-colors"
                   >
-                    📤 Tinta & ATK (Rp 35.000)
+                    📎 Stapler & Klip (Rp 10.000)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormJenis('pengeluaran');
+                      setFormUraian('Pembelian Meterai Tempel Putusan & Penetapan');
+                      setFormJumlah(10000);
+                      setFormKategori('Meterai');
+                      setFormKeterangan('Meterai Tempel 10000');
+                    }}
+                    className="px-2.5 py-1 bg-purple-950/80 border border-purple-700 text-purple-300 rounded font-semibold hover:bg-purple-900 transition-colors"
+                  >
+                    🏷️ Meterai (Rp 10.000)
                   </button>
                   <button
                     type="button"
@@ -895,10 +953,11 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
                       setFormUraian('Biaya Pengiriman Surat Relaas / Dokumen Putusan via PT Pos');
                       setFormJumlah(20000);
                       setFormKategori('Proses');
+                      setFormKeterangan('PT Pos Indonesia');
                     }}
                     className="px-2.5 py-1 bg-cyan-950/80 border border-cyan-700 text-cyan-300 rounded font-semibold hover:bg-cyan-900 transition-colors"
                   >
-                    📤 Pos / Relaas (Rp 20.000)
+                    📮 Pos / Relaas (Rp 20.000)
                   </button>
                 </div>
               </div>
@@ -974,14 +1033,15 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Jumlah Nominal (Rp)</label>
+                  <label className="block text-slate-300 font-semibold mb-1">Jumlah Nominal (Rp) *</label>
                   <input
                     type="number"
-                    min="1000"
-                    step="5000"
+                    min="0"
+                    step="any"
                     required
-                    value={formJumlah}
-                    onChange={(e) => setFormJumlah(Number(e.target.value))}
+                    placeholder="Contoh: 100000"
+                    value={formJumlah === 0 ? '' : formJumlah}
+                    onChange={(e) => setFormJumlah(e.target.value === '' ? 0 : Number(e.target.value))}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold"
                   />
                 </div>

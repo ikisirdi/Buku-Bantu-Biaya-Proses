@@ -45,34 +45,92 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
 function doPost(e) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var data = JSON.parse(e.postData.contents);
+  var action = data.action;
+  var rec = data.record || {};
   
-  if (data.action === 'add_case' || data.action === 'update_case') {
+  if (action === 'add_case' || action === 'update_case') {
     var sheetData = ss.getSheetByName('DataPerkara') || ss.getActiveSheet();
-    sheetData.appendRow([
-      data.record.nomorPerkara || '',             // 1. nomor_perkara
-      data.record.namaPihak || '',                // 2. nama_pihak
-      data.record.jenisPerkara || '',             // 3. jenis_perkara
-      data.record.tingkatPerkara || 'Tingkat Pertama', // 4. tingkat_perkara
-      data.record.tanggalRegister || '',          // 5. tanggal_register
-      data.record.tanggalTerimaKasasiPk || '',    // 6. tanggal_terima_kasasi_pk
-      data.record.tanggalPutus || '',             // 7. tanggal_putus
-      data.record.status || 'Diperiksa',          // 8. status
-      data.record.panjarAwal || 0,                // 9. panjar_awal
-      'Aktif',                                    // 10. Aksi
-      data.record.pengeluaran || 0,               // 11. pengeluaran
-      data.record.saldoPerkara || 0               // 12. saldo_perkara
-    ]);
-  } else if (data.action === 'add_biaya_proses' || data.action === 'zero_out_case') {
+    var values = sheetData.getDataRange().getValues();
+    var targetRowIndex = -1;
+    var targetNomor = (rec.nomorPerkara || '').toString().trim().toLowerCase();
+
+    // Cari baris berdasarkan nomor_perkara (Kolom 1)
+    for (var i = 1; i < values.length; i++) {
+      var cellVal = (values[i][0] || '').toString().trim().toLowerCase();
+      if (cellVal && cellVal === targetNomor) {
+        targetRowIndex = i + 1; // Indeks baris 1-indexed di Sheets
+        break;
+      }
+    }
+
+    var rowValues = [
+      rec.nomorPerkara || '',             // 1. nomor_perkara
+      rec.namaPihak || '',                // 2. nama_pihak
+      rec.jenisPerkara || '',             // 3. jenis_perkara
+      rec.tingkatPerkara || 'Tingkat Pertama', // 4. tingkat_perkara
+      rec.tanggalRegister || '',          // 5. tanggal_register
+      rec.tanggalTerimaKasasiPk || '',    // 6. tanggal_terima_kasasi_pk
+      rec.tanggalPutus || '',             // 7. tanggal_putus
+      rec.status || 'Diperiksa',          // 8. status
+      rec.panjarAwal || 0,                // 9. panjar_awal
+      'Aktif',                            // 10. Aksi
+      rec.pengeluaran || 0,               // 11. pengeluaran
+      rec.saldoPerkara || 0               // 12. saldo_perkara
+    ];
+
+    if (targetRowIndex > 0) {
+      // Jika nomor_perkara sudah ada, perbarui (UPDATE) baris tersebut di sheet!
+      sheetData.getRange(targetRowIndex, 1, 1, rowValues.length).setValues([rowValues]);
+    } else {
+      // Jika belum ada, tambahkan baris baru (INSERT)
+      sheetData.appendRow(rowValues);
+    }
+  } else if (action === 'add_biaya_proses' || action === 'update_biaya_proses' || action === 'zero_out_case') {
     var sheetLog = ss.getSheetByName('LogTransaksi') || ss.getActiveSheet();
-    sheetLog.appendRow([
-      data.record.tanggal || '',                 // 1. tanggal
-      data.record.nomorPerkara || '',             // 2. nomor_perkara
-      data.record.uraian || '',                  // 3. uraian
-      data.record.penerimaan || 0,                // 4. penerimaan
-      data.record.pengeluaran || 0,               // 5. pengeluaran
-      data.record.kategori || 'ATK',              // 6. kategori
-      data.record.keterangan || ''                // 7. keterangan
-    ]);
+    var logValues = [
+      rec.tanggal || '',                 // 1. tanggal
+      rec.nomorPerkara || '',             // 2. nomor_perkara
+      rec.uraian || '',                  // 3. uraian
+      rec.penerimaan || 0,                // 4. penerimaan
+      rec.pengeluaran || 0,               // 5. pengeluaran
+      rec.kategori || 'ATK',              // 6. kategori
+      rec.keterangan || ''                // 7. keterangan
+    ];
+
+    var targetRowIndex = -1;
+    var targetNomor = (rec.nomorPerkara || '').toString().trim().toLowerCase();
+    var targetUraian = (rec.uraian || '').toString().trim().toLowerCase();
+
+    if (targetNomor && targetNomor !== '-') {
+      var dataLog = sheetLog.getDataRange().getValues();
+      // 1. Cari pencocokan presisi: nomor_perkara DAN uraian
+      for (var j = 1; j < dataLog.length; j++) {
+        var rowNomor = (dataLog[j][1] || '').toString().trim().toLowerCase();
+        var rowUraian = (dataLog[j][2] || '').toString().trim().toLowerCase();
+        if (rowNomor === targetNomor && rowUraian === targetUraian && targetUraian !== '') {
+          targetRowIndex = j + 1;
+          break;
+        }
+      }
+      // 2. Jika aksi update_biaya_proses & uraian diubah, cari berdasarkan nomor_perkara
+      if (targetRowIndex === -1 && action === 'update_biaya_proses') {
+        for (var k = 1; k < dataLog.length; k++) {
+          var rNomor = (dataLog[k][1] || '').toString().trim().toLowerCase();
+          if (rNomor === targetNomor) {
+            targetRowIndex = k + 1;
+            break;
+          }
+        }
+      }
+    }
+
+    if (targetRowIndex > 0) {
+      // Perbarui baris transaksi yang ada (UPDATE)
+      sheetLog.getRange(targetRowIndex, 1, 1, logValues.length).setValues([logValues]);
+    } else {
+      // Baris transaksi baru (INSERT)
+      sheetLog.appendRow(logValues);
+    }
   }
   
   return ContentService.createTextOutput(JSON.stringify({ status: 'success' }))

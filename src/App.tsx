@@ -183,7 +183,7 @@ export default function App() {
 
     const webhook = getWebhookUrl(syncSettings);
     if (webhook) {
-      SyncService.postToWebhook(webhook, 'add_biaya_proses', record);
+      SyncService.postToWebhook(webhook, 'update_biaya_proses', record);
     }
 
     addNotification('Log Transaksi Diperbarui', `Log transaksi ${record.uraian} berhasil diperbarui.`, 'info');
