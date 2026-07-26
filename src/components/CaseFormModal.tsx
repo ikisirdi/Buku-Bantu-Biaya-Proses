@@ -138,9 +138,14 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
         <div className="px-6 py-4 bg-slate-800/80 border-b border-slate-700 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Scale className="w-5 h-5 text-emerald-400" />
-            <h3 className="font-bold text-slate-100 text-base">
-              {recordToEdit ? 'Edit Data Perkara' : 'Input Data Perkara Baru'}
-            </h3>
+            <div>
+              <h3 className="font-bold text-slate-100 text-base">
+                {recordToEdit ? 'Edit Data Perkara' : 'Input Data Perkara Baru'}
+              </h3>
+              <p className="text-[10px] text-emerald-400 font-medium">
+                📊 Sinkron otomatis dengan Sheet <code className="bg-slate-800 px-1 py-0.5 rounded text-amber-300">DataPerkara</code> (12 Kolom)
+              </p>
+            </div>
           </div>
           <button
             onClick={onClose}

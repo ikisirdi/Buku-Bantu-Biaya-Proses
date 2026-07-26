@@ -43,26 +43,35 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
 
   const appScriptCode = `// PASTE KODE INI DI GOOGLE SHEETS: Extensions > Apps Script
 function doPost(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
   var data = JSON.parse(e.postData.contents);
   
-  if (data.action === 'add_case') {
-    sheet.appendRow([
-      data.record.nomorPerkara,
-      data.record.namaPihak,
-      data.record.jenisPerkara,
-      data.record.saldoPerkara,
-      data.record.tanggalRegister,
-      data.record.status
+  if (data.action === 'add_case' || data.action === 'update_case') {
+    var sheetData = ss.getSheetByName('DataPerkara') || ss.getActiveSheet();
+    sheetData.appendRow([
+      data.record.nomorPerkara || '',             // 1. nomor_perkara
+      data.record.namaPihak || '',                // 2. nama_pihak
+      data.record.jenisPerkara || '',             // 3. jenis_perkara
+      data.record.tingkatPerkara || 'Tingkat Pertama', // 4. tingkat_perkara
+      data.record.tanggalRegister || '',          // 5. tanggal_register
+      data.record.tanggalTerimaKasasiPk || '',    // 6. tanggal_terima_kasasi_pk
+      data.record.tanggalPutus || '',             // 7. tanggal_putus
+      data.record.status || 'Diperiksa',          // 8. status
+      data.record.panjarAwal || 0,                // 9. panjar_awal
+      'Aktif',                                    // 10. Aksi
+      data.record.pengeluaran || 0,               // 11. pengeluaran
+      data.record.saldoPerkara || 0               // 12. saldo_perkara
     ]);
-  } else if (data.action === 'add_biaya_proses') {
-    sheet.appendRow([
-      data.record.tanggal,
-      data.record.nomorPerkara,
-      data.record.uraian,
-      data.record.penerimaan,
-      data.record.pengeluaran,
-      data.record.keterangan
+  } else if (data.action === 'add_biaya_proses' || data.action === 'zero_out_case') {
+    var sheetLog = ss.getSheetByName('LogTransaksi') || ss.getActiveSheet();
+    sheetLog.appendRow([
+      data.record.tanggal || '',                 // 1. tanggal
+      data.record.nomorPerkara || '',             // 2. nomor_perkara
+      data.record.uraian || '',                  // 3. uraian
+      data.record.penerimaan || 0,                // 4. penerimaan
+      data.record.pengeluaran || 0,               // 5. pengeluaran
+      data.record.kategori || 'ATK',              // 6. kategori
+      data.record.keterangan || ''                // 7. keterangan
     ]);
   }
   
@@ -191,16 +200,28 @@ function doPost(e) {
             <Sparkles className="w-5 h-5 shrink-0 text-emerald-600 mt-0.5" />
             <div>
               <p className="font-bold text-sm text-emerald-800">
-                Apakah data yang di-input bisa langsung terecord ke Google Sheets?
+                Struktur 2 Sheet Google Sheets (DataPerkara & LogTransaksi)
               </p>
               <p className="mt-1">
-                <strong>BISA BANGET!</strong> Anda bisa memilih 3 cara integrasi dengan Google Sheets:
+                Aplikasi ini mendukung penuh struktur 2 sheet Google Sheets Anda:
               </p>
-              <ul className="list-disc list-inside mt-1.5 space-y-1 font-medium">
-                <li><strong>Cara 1 (Otomatis)</strong>: Memasang <em>Google Apps Script Webhook</em> agar setiap kali input data di aplikasi, data langsung terkirim otomatis ke baris Google Sheets Anda.</li>
-                <li><strong>Cara 2 (Tarik Data)</strong>: Menghubungkan tautan Google Sheets publik agar aplikasi membaca data terbaru dari spreadsheet.</li>
-                <li><strong>Cara 3 (Ekspor File)</strong>: Mengunduh file CSV / JSON dari aplikasi dan langsung di-import ke Google Sheets.</li>
-              </ul>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                <div className={`p-2.5 rounded-lg border ${isLight ? 'bg-white border-emerald-200' : 'bg-slate-900 border-slate-700'}`}>
+                  <span className="font-bold text-emerald-700 block mb-1">1. Sheet `DataPerkara` (12 Kolom)</span>
+                  <code className="text-[10px] text-slate-600 block leading-tight">
+                    nomor_perkara | nama_pihak | jenis_perkara | tingkat_perkara | tanggal_register | tanggal_terima_kasasi_pk | tanggal_putus | status | panjar_awal | Aksi | pengeluaran | saldo_perkara
+                  </code>
+                </div>
+                <div className={`p-2.5 rounded-lg border ${isLight ? 'bg-white border-emerald-200' : 'bg-slate-900 border-slate-700'}`}>
+                  <span className="font-bold text-amber-700 block mb-1">2. Sheet `LogTransaksi` (7 Kolom)</span>
+                  <code className="text-[10px] text-slate-600 block leading-tight">
+                    tanggal | nomor_perkara | uraian | penerimaan | pengeluaran | kategori | keterangan
+                  </code>
+                </div>
+              </div>
+              <p className="mt-2 text-[11px] font-semibold text-emerald-900">
+                💡 <strong>Catatan Penting</strong>: Anda <strong>TIDAK PERLU</strong> membuat sheet baru untuk "Potong Biaya ATK Masuk Buku Bantu"! Karena transaksi potongan ATK otomatis masuk sebagai baris <u>Penerimaan</u> (Rp 100.000) di sheet <strong>`LogTransaksi`</strong>.
+              </p>
             </div>
           </div>
 
