@@ -734,95 +734,97 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
 
       {/* MODAL 1: DEDUCT ATK FROM CASE */}
       {isAtkModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col my-auto">
+            <div className="flex items-center justify-between p-4 border-b border-slate-800 shrink-0 bg-slate-900">
               <div className="flex items-center space-x-2 text-emerald-400">
                 <Scissors className="w-5 h-5" />
                 <h3 className="font-bold text-slate-100 text-base">Potong Biaya ATK Masuk Buku Bantu</h3>
               </div>
-              <button onClick={() => setIsAtkModalOpen(false)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setIsAtkModalOpen(false)} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleConfirmAtkDeduction} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Pilih Nomor Perkara</label>
-                <select
-                  value={atkCaseNumber}
-                  onChange={(e) => setAtkCaseNumber(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-xs font-mono font-bold"
-                >
-                  {cases.map(c => (
-                    <option key={c.id} value={c.nomorPerkara}>
-                      {c.nomorPerkara} - {c.namaPihak} ({c.jenisPerkara})
-                    </option>
-                  ))}
-                </select>
+            <form onSubmit={handleConfirmAtkDeduction} className="flex flex-col flex-1 overflow-hidden text-xs">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Pilih Nomor Perkara</label>
+                  <select
+                    value={atkCaseNumber}
+                    onChange={(e) => setAtkCaseNumber(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-xs font-mono font-bold"
+                  >
+                    {cases.map(c => (
+                      <option key={c.id} value={c.nomorPerkara}>
+                        {c.nomorPerkara} - {c.namaPihak} ({c.jenisPerkara})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Nominal Pemotongan ATK (Rp)</label>
+                  <input
+                    type="number"
+                    min="10000"
+                    step="10000"
+                    required
+                    value={atkAmount}
+                    onChange={(e) => setAtkAmount(Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Tanggal Transaksi</label>
+                  <input
+                    type="date"
+                    required
+                    value={atkTanggal}
+                    onChange={(e) => setAtkTanggal(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Pilih Uraian Standar (Atau Ketik Kustom)</label>
+                  <select
+                    value={STANDARD_URAIAN_OPTIONS.some(o => o.label === atkUraian) ? atkUraian : 'custom'}
+                    onChange={(e) => {
+                      if (e.target.value !== 'custom') {
+                        setAtkUraian(e.target.value);
+                      }
+                    }}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 mb-2 text-xs"
+                  >
+                    {STANDARD_URAIAN_OPTIONS.map((opt, i) => (
+                      <option key={i} value={opt.label}>{opt.label}</option>
+                    ))}
+                    <option value="custom">-- Tulis Uraian Kustom Lainnya --</option>
+                  </select>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Deskripsi uraian transaksi..."
+                    value={atkUraian}
+                    onChange={(e) => setAtkUraian(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-medium"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Nominal Pemotongan ATK (Rp)</label>
-                <input
-                  type="number"
-                  min="10000"
-                  step="10000"
-                  required
-                  value={atkAmount}
-                  onChange={(e) => setAtkAmount(Number(e.target.value))}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Tanggal Transaksi</label>
-                <input
-                  type="date"
-                  required
-                  value={atkTanggal}
-                  onChange={(e) => setAtkTanggal(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Pilih Uraian Standar (Atau Ketik Kustom)</label>
-                <select
-                  value={STANDARD_URAIAN_OPTIONS.some(o => o.label === atkUraian) ? atkUraian : 'custom'}
-                  onChange={(e) => {
-                    if (e.target.value !== 'custom') {
-                      setAtkUraian(e.target.value);
-                    }
-                  }}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 mb-2 text-xs"
-                >
-                  {STANDARD_URAIAN_OPTIONS.map((opt, i) => (
-                    <option key={i} value={opt.label}>{opt.label}</option>
-                  ))}
-                  <option value="custom">-- Tulis Uraian Kustom Lainnya --</option>
-                </select>
-                <input
-                  type="text"
-                  required
-                  placeholder="Deskripsi uraian transaksi..."
-                  value={atkUraian}
-                  onChange={(e) => setAtkUraian(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-medium"
-                />
-              </div>
-
-              <div className="pt-3 flex justify-end space-x-2 border-t border-slate-800">
+              <div className="p-4 flex justify-end space-x-2 border-t border-slate-800 shrink-0 bg-slate-900">
                 <button
                   type="button"
                   onClick={() => setIsAtkModalOpen(false)}
-                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-medium"
+                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-medium hover:bg-slate-700 transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold shadow-md shadow-emerald-900/40"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold shadow-md shadow-emerald-900/40 transition-colors"
                 >
                   Masuk ke Buku Bantu Biaya Proses
                 </button>
@@ -834,255 +836,257 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
 
       {/* MODAL 2: ADD / EDIT TRANSACTION MANUAL */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col my-auto">
+            <div className="flex items-center justify-between p-4 border-b border-slate-800 shrink-0 bg-slate-900">
               <div className="flex items-center space-x-2 text-amber-400">
                 <PlusCircle className="w-5 h-5" />
                 <h3 className="font-bold text-slate-100 text-base">
                   {editingId ? 'Edit Log Transaksi' : 'Input Log Transaksi Baru'}
                 </h3>
               </div>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveForm} className="space-y-3 text-xs">
-              {/* QUICK PRESET BUTTONS */}
-              <div className="bg-slate-800/70 border border-slate-700/80 p-2.5 rounded-xl space-y-2">
-                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
-                  ⚡ Tombol Cepat Preset Detail ATK & Transaksi:
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormJenis('penerimaan');
-                      setFormUraian('Pemotongan Panjar ATK Pendaftaran Perkara');
-                      setFormJumlah(100000);
-                      setFormKategori('ATK');
-                      setFormKeterangan('Pengelolaan ATK Pendaftaran');
-                    }}
-                    className="px-2.5 py-1 bg-emerald-950/90 border border-emerald-700 text-emerald-300 rounded font-bold hover:bg-emerald-900 transition-colors"
-                  >
-                    📥 Pemasukan ATK Pendaftaran (Rp 100.000)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormJenis('pengeluaran');
-                      setFormUraian('Pengadaan Kertas HVS A4/F4 Berkas Perkara');
-                      setFormJumlah(45000);
-                      setFormKategori('ATK');
-                      setFormKeterangan('Beli Kertas HVS');
-                    }}
-                    className="px-2.5 py-1 bg-amber-950/80 border border-amber-700 text-amber-300 rounded font-semibold hover:bg-amber-900 transition-colors"
-                  >
-                    📄 Kertas HVS (Rp 45.000)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormJenis('pengeluaran');
-                      setFormUraian('Pengadaan Stopmap & Map Perkara');
-                      setFormJumlah(15000);
-                      setFormKategori('ATK');
-                      setFormKeterangan('Stopmap Berkas');
-                    }}
-                    className="px-2.5 py-1 bg-amber-950/80 border border-amber-700 text-amber-200 rounded font-semibold hover:bg-amber-900 transition-colors"
-                  >
-                    📁 Stopmap Perkara (Rp 15.000)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormJenis('pengeluaran');
-                      setFormUraian('Pengadaan Tinta Printer Berkas Perkara');
-                      setFormJumlah(35000);
-                      setFormKategori('ATK');
-                      setFormKeterangan('Tinta Printer');
-                    }}
-                    className="px-2.5 py-1 bg-blue-950/80 border border-blue-700 text-blue-300 rounded font-semibold hover:bg-blue-900 transition-colors"
-                  >
-                    🖨️ Tinta Printer (Rp 35.000)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormJenis('pengeluaran');
-                      setFormUraian('Pengadaan Ballpoint, Pensil & Tipe-X');
-                      setFormJumlah(15000);
-                      setFormKategori('ATK');
-                      setFormKeterangan('Ballpoint & Alat Tulis');
-                    }}
-                    className="px-2.5 py-1 bg-indigo-950/80 border border-indigo-700 text-indigo-300 rounded font-semibold hover:bg-indigo-900 transition-colors"
-                  >
-                    ✏️ Ballpoint & Alat Tulis (Rp 15.000)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormJenis('pengeluaran');
-                      setFormUraian('Pengadaan Stapler, Isi Staples & Paper Clip');
-                      setFormJumlah(10000);
-                      setFormKategori('ATK');
-                      setFormKeterangan('Staples & Klip');
-                    }}
-                    className="px-2.5 py-1 bg-slate-800 border border-slate-600 text-slate-200 rounded font-semibold hover:bg-slate-700 transition-colors"
-                  >
-                    📎 Stapler & Klip (Rp 10.000)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormJenis('pengeluaran');
-                      setFormUraian('Pembelian Meterai Tempel Putusan & Penetapan');
-                      setFormJumlah(10000);
-                      setFormKategori('Meterai');
-                      setFormKeterangan('Meterai Tempel 10000');
-                    }}
-                    className="px-2.5 py-1 bg-purple-950/80 border border-purple-700 text-purple-300 rounded font-semibold hover:bg-purple-900 transition-colors"
-                  >
-                    🏷️ Meterai (Rp 10.000)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormJenis('pengeluaran');
-                      setFormUraian('Biaya Pengiriman Surat Relaas / Dokumen Putusan via PT Pos');
-                      setFormJumlah(20000);
-                      setFormKategori('Proses');
-                      setFormKeterangan('PT Pos Indonesia');
-                    }}
-                    className="px-2.5 py-1 bg-cyan-950/80 border border-cyan-700 text-cyan-300 rounded font-semibold hover:bg-cyan-900 transition-colors"
-                  >
-                    📮 Pos / Relaas (Rp 20.000)
-                  </button>
+            <form onSubmit={handleSaveForm} className="flex flex-col flex-1 overflow-hidden text-xs">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {/* QUICK PRESET BUTTONS */}
+                <div className="bg-slate-800/70 border border-slate-700/80 p-2.5 rounded-xl space-y-2">
+                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
+                    ⚡ Tombol Cepat Preset Detail ATK & Transaksi:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormJenis('penerimaan');
+                        setFormUraian('Pemotongan Panjar ATK Pendaftaran Perkara');
+                        setFormJumlah(100000);
+                        setFormKategori('ATK');
+                        setFormKeterangan('Pengelolaan ATK Pendaftaran');
+                      }}
+                      className="px-2.5 py-1 bg-emerald-950/90 border border-emerald-700 text-emerald-300 rounded font-bold hover:bg-emerald-900 transition-colors"
+                    >
+                      📥 Pemasukan ATK Pendaftaran (Rp 100.000)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormJenis('pengeluaran');
+                        setFormUraian('Pengadaan Kertas HVS A4/F4 Berkas Perkara');
+                        setFormJumlah(45000);
+                        setFormKategori('ATK');
+                        setFormKeterangan('Beli Kertas HVS');
+                      }}
+                      className="px-2.5 py-1 bg-amber-950/80 border border-amber-700 text-amber-300 rounded font-semibold hover:bg-amber-900 transition-colors"
+                    >
+                      📄 Kertas HVS (Rp 45.000)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormJenis('pengeluaran');
+                        setFormUraian('Pengadaan Stopmap & Map Perkara');
+                        setFormJumlah(15000);
+                        setFormKategori('ATK');
+                        setFormKeterangan('Stopmap Berkas');
+                      }}
+                      className="px-2.5 py-1 bg-amber-950/80 border border-amber-700 text-amber-200 rounded font-semibold hover:bg-amber-900 transition-colors"
+                    >
+                      📁 Stopmap Perkara (Rp 15.000)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormJenis('pengeluaran');
+                        setFormUraian('Pengadaan Tinta Printer Berkas Perkara');
+                        setFormJumlah(35000);
+                        setFormKategori('ATK');
+                        setFormKeterangan('Tinta Printer');
+                      }}
+                      className="px-2.5 py-1 bg-blue-950/80 border border-blue-700 text-blue-300 rounded font-semibold hover:bg-blue-900 transition-colors"
+                    >
+                      🖨️ Tinta Printer (Rp 35.000)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormJenis('pengeluaran');
+                        setFormUraian('Pengadaan Ballpoint, Pensil & Tipe-X');
+                        setFormJumlah(15000);
+                        setFormKategori('ATK');
+                        setFormKeterangan('Ballpoint & Alat Tulis');
+                      }}
+                      className="px-2.5 py-1 bg-indigo-950/80 border border-indigo-700 text-indigo-300 rounded font-semibold hover:bg-indigo-900 transition-colors"
+                    >
+                      ✏️ Ballpoint & Alat Tulis (Rp 15.000)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormJenis('pengeluaran');
+                        setFormUraian('Pengadaan Stapler, Isi Staples & Paper Clip');
+                        setFormJumlah(10000);
+                        setFormKategori('ATK');
+                        setFormKeterangan('Staples & Klip');
+                      }}
+                      className="px-2.5 py-1 bg-slate-800 border border-slate-600 text-slate-200 rounded font-semibold hover:bg-slate-700 transition-colors"
+                    >
+                      📎 Stapler & Klip (Rp 10.000)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormJenis('pengeluaran');
+                        setFormUraian('Pembelian Meterai Tempel Putusan & Penetapan');
+                        setFormJumlah(10000);
+                        setFormKategori('Meterai');
+                        setFormKeterangan('Meterai Tempel 10000');
+                      }}
+                      className="px-2.5 py-1 bg-purple-950/80 border border-purple-700 text-purple-300 rounded font-semibold hover:bg-purple-900 transition-colors"
+                    >
+                      🏷️ Meterai (Rp 10.000)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormJenis('pengeluaran');
+                        setFormUraian('Biaya Pengiriman Surat Relaas / Dokumen Putusan via PT Pos');
+                        setFormJumlah(20000);
+                        setFormKategori('Proses');
+                        setFormKeterangan('PT Pos Indonesia');
+                      }}
+                      className="px-2.5 py-1 bg-cyan-950/80 border border-cyan-700 text-cyan-300 rounded font-semibold hover:bg-cyan-900 transition-colors"
+                    >
+                      📮 Pos / Relaas (Rp 20.000)
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Tanggal Transaksi (Kolom 2)</label>
+                    <input
+                      type="date"
+                      required
+                      value={formTanggal}
+                      onChange={(e) => setFormTanggal(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Jenis Transaksi</label>
+                    <select
+                      value={formJenis}
+                      onChange={(e) => setFormJenis(e.target.value as 'penerimaan' | 'pengeluaran')}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold"
+                    >
+                      <option value="penerimaan">Penerimaan / Masuk (Kolom 5)</option>
+                      <option value="pengeluaran">Pengeluaran / Beli ATK (Kolom 6)</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Tanggal Transaksi (Kolom 2)</label>
+                  <label className="block text-slate-300 font-semibold mb-1">Nomor Perkara (Kolom 3 - Opsional)</label>
                   <input
-                    type="date"
-                    required
-                    value={formTanggal}
-                    onChange={(e) => setFormTanggal(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+                    type="text"
+                    placeholder="Contoh: 14/Pdt.G/2026/PA.Pan atau -"
+                    value={formNomorPerkara}
+                    onChange={(e) => setFormNomorPerkara(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-mono"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Jenis Transaksi</label>
+                  <label className="block text-slate-300 font-semibold mb-1">Uraian Keperluan ATK / Transaksi * (Kolom 4)</label>
                   <select
-                    value={formJenis}
-                    onChange={(e) => setFormJenis(e.target.value as 'penerimaan' | 'pengeluaran')}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold"
-                  >
-                    <option value="penerimaan">Penerimaan / Masuk (Kolom 5)</option>
-                    <option value="pengeluaran">Pengeluaran / Beli ATK (Kolom 6)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Nomor Perkara (Kolom 3 - Opsional)</label>
-                <input
-                  type="text"
-                  placeholder="Contoh: 14/Pdt.G/2026/PA.Pan atau -"
-                  value={formNomorPerkara}
-                  onChange={(e) => setFormNomorPerkara(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Uraian Keperluan ATK / Transaksi * (Kolom 4)</label>
-                <select
-                  value={STANDARD_URAIAN_OPTIONS.some(o => o.label === formUraian) ? formUraian : 'custom'}
-                  onChange={(e) => {
-                    const selectedVal = e.target.value;
-                    if (selectedVal !== 'custom') {
-                      setFormUraian(selectedVal);
-                      const matched = STANDARD_URAIAN_OPTIONS.find(o => o.label === selectedVal);
-                      if (matched) {
-                        setFormJenis(matched.jenis as 'penerimaan' | 'pengeluaran');
-                        setFormKategori(matched.kategori as any);
+                    value={STANDARD_URAIAN_OPTIONS.some(o => o.label === formUraian) ? formUraian : 'custom'}
+                    onChange={(e) => {
+                      const selectedVal = e.target.value;
+                      if (selectedVal !== 'custom') {
+                        setFormUraian(selectedVal);
+                        const matched = STANDARD_URAIAN_OPTIONS.find(o => o.label === selectedVal);
+                        if (matched) {
+                          setFormJenis(matched.jenis as 'penerimaan' | 'pengeluaran');
+                          setFormKategori(matched.kategori as any);
+                        }
                       }
-                    }
-                  }}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 mb-2 text-xs"
-                >
-                  <option value="custom">-- Pilih Template / Ketik Sendiri --</option>
-                  {STANDARD_URAIAN_OPTIONS.map((opt, i) => (
-                    <option key={i} value={opt.label}>
-                      [{opt.jenis === 'penerimaan' ? 'PENERIMAAN' : 'PENGELUARAN'}] {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="text"
-                  required
-                  placeholder="Deskripsi transaksi..."
-                  value={formUraian}
-                  onChange={(e) => setFormUraian(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-medium"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Jumlah Nominal (Rp) *</label>
+                    }}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 mb-2 text-xs"
+                  >
+                    <option value="custom">-- Pilih Template / Ketik Sendiri --</option>
+                    {STANDARD_URAIAN_OPTIONS.map((opt, i) => (
+                      <option key={i} value={opt.label}>
+                        [{opt.jenis === 'penerimaan' ? 'PENERIMAAN' : 'PENGELUARAN'}] {opt.label}
+                      </option>
+                    ))}
+                  </select>
                   <input
-                    type="number"
-                    min="0"
-                    step="any"
+                    type="text"
                     required
-                    placeholder="Contoh: 100000"
-                    value={formJumlah === 0 ? '' : formJumlah}
-                    onChange={(e) => setFormJumlah(e.target.value === '' ? 0 : Number(e.target.value))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold"
+                    placeholder="Deskripsi transaksi..."
+                    value={formUraian}
+                    onChange={(e) => setFormUraian(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-medium"
                   />
                 </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Jumlah Nominal (Rp) *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      required
+                      placeholder="Contoh: 100000"
+                      value={formJumlah === 0 ? '' : formJumlah}
+                      onChange={(e) => setFormJumlah(e.target.value === '' ? 0 : Number(e.target.value))}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Kategori</label>
+                    <select
+                      value={formKategori}
+                      onChange={(e) => setFormKategori(e.target.value as any)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+                    >
+                      <option value="ATK">Pemotongan ATK</option>
+                      <option value="Proses">Biaya Proses</option>
+                      <option value="Meterai">Meterai</option>
+                      <option value="Redaksi">Redaksi</option>
+                      <option value="Panggilan">Panggilan</option>
+                      <option value="Lainnya">Lainnya</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Kategori</label>
-                  <select
-                    value={formKategori}
-                    onChange={(e) => setFormKategori(e.target.value as any)}
+                  <label className="block text-slate-300 font-semibold mb-1">Keterangan / Penerima / PT Pos (Kolom 7)</label>
+                  <input
+                    type="text"
+                    value={formKeterangan}
+                    onChange={(e) => setFormKeterangan(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
-                  >
-                    <option value="ATK">Pemotongan ATK</option>
-                    <option value="Proses">Biaya Proses</option>
-                    <option value="Meterai">Meterai</option>
-                    <option value="Redaksi">Redaksi</option>
-                    <option value="Panggilan">Panggilan</option>
-                    <option value="Lainnya">Lainnya</option>
-                  </select>
+                  />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Keterangan / Penerima / PT Pos (Kolom 7)</label>
-                <input
-                  type="text"
-                  value={formKeterangan}
-                  onChange={(e) => setFormKeterangan(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
-                />
-              </div>
-
-              <div className="pt-3 flex justify-end space-x-2 border-t border-slate-800">
+              <div className="p-4 flex justify-end space-x-2 border-t border-slate-800 shrink-0 bg-slate-900">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-medium"
+                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-medium hover:bg-slate-700 transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-bold shadow-md shadow-amber-900/40"
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-bold shadow-md shadow-amber-900/40 transition-colors"
                 >
                   Simpan Transaksi
                 </button>

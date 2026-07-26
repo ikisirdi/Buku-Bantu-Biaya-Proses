@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, Fragment } from 'react';
+import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import { Github, X, Copy, Check, Download, Terminal, Play, Sparkles, ExternalLink, HardDrive } from 'lucide-react';
 
 interface GitHubWorkflowModalProps {
@@ -9,8 +10,6 @@ interface GitHubWorkflowModalProps {
 export const GitHubWorkflowModal: React.FC<GitHubWorkflowModalProps> = ({ isOpen, onClose }) => {
   const [copiedWorkflow, setCopiedWorkflow] = useState(false);
   const [copiedScript, setCopiedScript] = useState(false);
-
-  if (!isOpen) return null;
 
   const workflowYaml = `# .github/workflows/deploy.yml
 name: Deploy SI-PERKARA to GitHub Pages & Auto Sync
@@ -133,24 +132,47 @@ syncSpreadsheetData();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
-      <div className="bg-slate-900 border border-slate-800 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        
-        {/* Header */}
-        <div className="px-6 py-4 bg-slate-800/80 border-b border-slate-700 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Github className="w-5 h-5 text-emerald-400" />
-            <h3 className="font-bold text-slate-100 text-base">
-              Otomatisasi GitHub Pages & GitHub Actions Workflow
-            </h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-700/50 transition-colors"
+    <Transition show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-50" onClose={onClose}>
+        <TransitionChild
+          as={Fragment}
+          enter="ease-out duration-200"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-150"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" />
+        </TransitionChild>
+
+        <div className="fixed inset-0 overflow-y-auto p-3 sm:p-6 flex items-center justify-center">
+          <TransitionChild
+            as={Fragment}
+            enter="ease-out duration-200"
+            enterFrom="opacity-0 scale-95"
+            enterTo="opacity-100 scale-100"
+            leave="ease-in duration-150"
+            leaveFrom="opacity-100 scale-100"
+            leaveTo="opacity-0 scale-95"
           >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+            <DialogPanel className="bg-slate-900 border border-slate-800 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-slate-100">
+              
+              {/* Header */}
+              <div className="px-6 py-4 bg-slate-800/80 border-b border-slate-700/80 flex items-center justify-between shrink-0">
+                <div className="flex items-center space-x-2">
+                  <Github className="w-5 h-5 text-emerald-400" />
+                  <DialogTitle as="h3" className="font-bold text-slate-100 text-base">
+                    Otomatisasi GitHub Pages & GitHub Actions Workflow
+                  </DialogTitle>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-700/50 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
         {/* Content */}
         <div className="p-6 overflow-y-auto space-y-6 text-xs text-slate-300">
@@ -264,7 +286,7 @@ syncSpreadsheetData();
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-slate-800/80 border-t border-slate-700 flex justify-end">
+        <div className="px-6 py-4 bg-slate-800/80 border-t border-slate-700 flex justify-end shrink-0">
           <button
             onClick={onClose}
             className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors"
@@ -273,7 +295,10 @@ syncSpreadsheetData();
           </button>
         </div>
 
-      </div>
-    </div>
+            </DialogPanel>
+          </TransitionChild>
+        </div>
+      </Dialog>
+    </Transition>
   );
 };

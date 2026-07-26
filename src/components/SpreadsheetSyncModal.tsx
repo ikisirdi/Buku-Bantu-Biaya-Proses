@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, Fragment } from 'react';
+import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import { SyncSettings, CaseRecord } from '../types';
 import { SyncService } from '../services/syncService';
 import { 
@@ -38,8 +39,6 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [copiedScript, setCopiedScript] = useState<boolean>(false);
-
-  if (!isOpen) return null;
 
   const appScriptCode = `// PASTE KODE INI DI GOOGLE SHEETS: Extensions > Apps Script
 function doPost(e) {
@@ -223,30 +222,53 @@ function doPost(e) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
-      <div className={`border w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-colors ${
-        isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'
-      }`}>
-        
-        {/* Modal Header */}
-        <div className={`px-6 py-4 border-b flex items-center justify-between ${
-          isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-800/80 border-slate-700'
-        }`}>
-          <div className="flex items-center space-x-2">
-            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
-            <h3 className={`font-extrabold text-base ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
-              Integrasi & Sinkronisasi Google Sheets
-            </h3>
-          </div>
-          <button
-            onClick={onClose}
-            className={`p-1 rounded-lg transition-colors ${
-              isLight ? 'text-slate-500 hover:bg-slate-200' : 'text-slate-400 hover:text-white hover:bg-slate-700'
-            }`}
+    <Transition show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-50" onClose={onClose}>
+        <TransitionChild
+          as={Fragment}
+          enter="ease-out duration-200"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-150"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" />
+        </TransitionChild>
+
+        <div className="fixed inset-0 overflow-y-auto p-3 sm:p-6 flex items-center justify-center">
+          <TransitionChild
+            as={Fragment}
+            enter="ease-out duration-200"
+            enterFrom="opacity-0 scale-95"
+            enterTo="opacity-100 scale-100"
+            leave="ease-in duration-150"
+            leaveFrom="opacity-100 scale-100"
+            leaveTo="opacity-0 scale-95"
           >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+            <DialogPanel className={`border w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-colors text-slate-100 ${
+              isLight ? 'bg-white border-slate-200 text-slate-900' : 'bg-slate-900 border-slate-800 text-slate-100'
+            }`}>
+              
+              {/* Modal Header */}
+              <div className={`px-6 py-4 border-b flex items-center justify-between shrink-0 ${
+                isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-800/80 border-slate-700/80'
+              }`}>
+                <div className="flex items-center space-x-2">
+                  <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                  <DialogTitle as="h3" className={`font-extrabold text-base ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
+                    Integrasi & Sinkronisasi Google Sheets
+                  </DialogTitle>
+                </div>
+                <button
+                  onClick={onClose}
+                  className={`p-1 rounded-lg transition-colors ${
+                    isLight ? 'text-slate-500 hover:bg-slate-200' : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                  }`}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-6">
@@ -462,7 +484,7 @@ function doPost(e) {
         </div>
 
         {/* Footer */}
-        <div className={`px-6 py-4 border-t flex justify-end ${
+        <div className={`px-6 py-4 border-t flex justify-end shrink-0 ${
           isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-800/80 border-slate-700'
         }`}>
           <button
@@ -475,7 +497,10 @@ function doPost(e) {
           </button>
         </div>
 
-      </div>
-    </div>
+            </DialogPanel>
+          </TransitionChild>
+        </div>
+      </Dialog>
+    </Transition>
   );
 };
