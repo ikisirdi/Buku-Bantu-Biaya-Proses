@@ -55,65 +55,98 @@ export default function App() {
   const [selectedCaseDetail, setSelectedCaseDetail] = useState<CaseRecord | null>(null);
 
   // Load Initial Data from Storage / Cache & merge with fresh public data / Google Sheet
-  useEffect(() => {
+  const loadDataFromSource = useCallback(async (isForceSpreadsheetOverwrite = false) => {
     const loadedCases = StorageService.getCases();
     const loadedBiayaProses = StorageService.getBiayaProsesRecords();
     const loadedNotifs = StorageService.getNotifications();
-    const syncSettings = StorageService.getSyncSettings();
+    const currentSyncSettings = StorageService.getSyncSettings();
 
     setCases(loadedCases);
     setBiayaProsesRecords(loadedBiayaProses);
     setNotifications(loadedNotifs);
     setCacheMeta(StorageService.getCacheMeta());
 
-    const mergeWithIncoming = (incomingRecords: CaseRecord[]) => {
-      if (Array.isArray(incomingRecords) && incomingRecords.length > 0) {
-        setCases(prevCases => {
-          const caseMap = new Map<string, CaseRecord>();
-
-          // Put incoming records from spreadsheet/JSON first
-          incomingRecords.forEach(inc => {
-            const key = inc.nomorPerkara && inc.nomorPerkara.trim() !== '' 
-              ? inc.nomorPerkara.trim().toLowerCase() 
-              : inc.id;
-            caseMap.set(key, inc);
-          });
-
-          // Overlay local cases so user-added local additions or edits are preserved
-          prevCases.forEach(local => {
-            const key = local.nomorPerkara && local.nomorPerkara.trim() !== '' 
-              ? local.nomorPerkara.trim().toLowerCase() 
-              : local.id;
-            if (!caseMap.has(key)) {
-              caseMap.set(key, local);
-            } else {
-              const existing = caseMap.get(key)!;
-              caseMap.set(key, { ...existing, ...local });
-            }
-          });
-
-          const merged = Array.from(caseMap.values());
-          StorageService.saveCases(merged);
-          return merged;
+    const applyCasesUpdate = (incomingRecords: CaseRecord[]) => {
+      if (!Array.isArray(incomingRecords) || incomingRecords.length === 0) return;
+      setCases(prevCases => {
+        if (isForceSpreadsheetOverwrite) {
+          StorageService.saveCases(incomingRecords);
+          return incomingRecords;
+        }
+        const caseMap = new Map<string, CaseRecord>();
+        incomingRecords.forEach(inc => {
+          const key = inc.nomorPerkara && inc.nomorPerkara.trim() !== '' 
+            ? inc.nomorPerkara.trim().toLowerCase() 
+            : inc.id;
+          caseMap.set(key, inc);
         });
-        setCacheMeta(StorageService.getCacheMeta());
-      }
+        prevCases.forEach(local => {
+          const key = local.nomorPerkara && local.nomorPerkara.trim() !== '' 
+            ? local.nomorPerkara.trim().toLowerCase() 
+            : local.id;
+          if (!caseMap.has(key)) {
+            caseMap.set(key, local);
+          }
+        });
+        const merged = Array.from(caseMap.values());
+        StorageService.saveCases(merged);
+        return merged;
+      });
+      setCacheMeta(StorageService.getCacheMeta());
     };
 
-    if (syncSettings.googleSheetUrl && syncSettings.googleSheetUrl.trim().length > 0) {
-      SyncService.fetchGoogleSheetCsv(syncSettings.googleSheetUrl)
-        .then(mergeWithIncoming)
-        .catch(err => console.warn('Gagal auto-sync Google Sheet:', err));
+    const applyBiayaProsesUpdate = (incomingLog: BiayaProsesRecord[]) => {
+      if (!Array.isArray(incomingLog) || incomingLog.length === 0) return;
+      setBiayaProsesRecords(prevRecords => {
+        if (isForceSpreadsheetOverwrite) {
+          StorageService.saveBiayaProsesRecords(incomingLog);
+          return incomingLog;
+        }
+        const recordMap = new Map<string, BiayaProsesRecord>();
+        incomingLog.forEach(inc => {
+          const key = `${inc.tanggal}_${inc.nomorPerkara}_${inc.uraian}`.toLowerCase();
+          recordMap.set(key, inc);
+        });
+        prevRecords.forEach(local => {
+          const key = `${local.tanggal}_${local.nomorPerkara}_${local.uraian}`.toLowerCase();
+          if (!recordMap.has(key)) {
+            recordMap.set(key, local);
+          }
+        });
+        const merged = Array.from(recordMap.values());
+        StorageService.saveBiayaProsesRecords(merged);
+        return merged;
+      });
+    };
+
+    if (currentSyncSettings.googleSheetUrl && currentSyncSettings.googleSheetUrl.trim().length > 0) {
+      try {
+        const casesData = await SyncService.fetchGoogleSheetCsv(currentSyncSettings.googleSheetUrl);
+        applyCasesUpdate(casesData);
+
+        const logData = await SyncService.fetchGoogleSheetBiayaProsesCsv(currentSyncSettings.googleSheetUrl);
+        if (logData && logData.length > 0) {
+          applyBiayaProsesUpdate(logData);
+        }
+      } catch (err) {
+        console.warn('Gagal auto-sync Google Sheet:', err);
+      }
     } else {
       fetch('./data_perkara.json')
-        .then(res => {
-          if (res.ok) return res.json();
-          throw new Error('Public JSON tidak tersedia');
-        })
-        .then(mergeWithIncoming)
+        .then(res => res.ok ? res.json() : null)
+        .then(json => json && applyCasesUpdate(json))
+        .catch(() => {});
+
+      fetch('./data_biaya_proses.json')
+        .then(res => res.ok ? res.json() : null)
+        .then(json => json && applyBiayaProsesUpdate(json))
         .catch(() => {});
     }
   }, []);
+
+  useEffect(() => {
+    loadDataFromSource(false);
+  }, [loadDataFromSource]);
 
   // Sync state changes to storage
   const updateCasesState = useCallback((newCases: CaseRecord[]) => {
@@ -427,9 +460,8 @@ export default function App() {
   };
 
   const handleForceReload = () => {
-    const fresh = StorageService.getCases();
-    setCases(fresh);
-    setCacheMeta(StorageService.getCacheMeta());
+    loadDataFromSource(true);
+    addNotification('Muat Ulang Data Terkini', 'Data telah diperbarui secara langsung dari Google Spreadsheet & JSON.', 'success');
   };
 
   const unreadNotifCount = notifications.filter(n => !n.read).length;
@@ -474,6 +506,8 @@ export default function App() {
             onDeleteRecord={handleDeleteBiayaProsesRecord}
             onPotongAtkPerkara={handlePotongAtkPerkara}
             onZeroOutCaseBalance={handleZeroOutCaseBalance}
+            onSyncSpreadsheet={() => loadDataFromSource(true)}
+            syncSettings={syncSettings}
             theme={theme}
           />
         ) : (

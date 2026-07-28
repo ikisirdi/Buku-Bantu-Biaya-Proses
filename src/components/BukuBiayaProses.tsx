@@ -21,8 +21,11 @@ import {
   Download,
   Copy,
   CheckCircle,
-  Clock
+  Clock,
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
+import { SyncSettings } from '../types';
 
 interface BukuBiayaProsesProps {
   records: BiayaProsesRecord[];
@@ -32,6 +35,8 @@ interface BukuBiayaProsesProps {
   onDeleteRecord: (id: string) => void;
   onPotongAtkPerkara: (caseNumber: string, amount: number, uraian: string, tanggal: string) => void;
   onZeroOutCaseBalance?: (caseNumber: string, generatedItems: { uraian: string; amount: number; kategori: 'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Lainnya' }[]) => void;
+  onSyncSpreadsheet?: () => void;
+  syncSettings?: SyncSettings;
   theme?: 'light' | 'dark';
 }
 
@@ -65,6 +70,8 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
   onDeleteRecord,
   onPotongAtkPerkara,
   onZeroOutCaseBalance,
+  onSyncSpreadsheet,
+  syncSettings,
   theme = 'light'
 }) => {
   const isLight = theme === 'light';
@@ -368,6 +375,23 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {/* Sync / Force Reload Button */}
+          {onSyncSpreadsheet && (
+            <button
+              id="sync-spreadsheet-buku-btn"
+              onClick={onSyncSpreadsheet}
+              className={`flex items-center space-x-1.5 px-3 py-2 border rounded-xl text-xs font-bold transition-all ${
+                isLight
+                  ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                  : 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border-emerald-800/60'
+              }`}
+              title="Muat ulang dan sinkronkan data langsung dari Google Spreadsheet"
+            >
+              <RefreshCw className="w-4 h-4 text-emerald-600" />
+              <span>Muat dari Spreadsheet</span>
+            </button>
+          )}
+
           {/* Spreadsheet Structure Guide Button */}
           <button
             id="spreadsheet-guide-btn"
@@ -418,6 +442,33 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
             <span>Cetak Rekap Bulanan</span>
           </button>
         </div>
+      </div>
+
+      {/* SYNC STATUS BANNER */}
+      <div className={`p-3.5 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs ${
+        isLight ? 'bg-blue-50/80 border-blue-200 text-blue-900' : 'bg-slate-900/90 border-slate-800 text-slate-300'
+      }`}>
+        <div className="flex items-center space-x-2.5">
+          <RefreshCw className="w-4 h-4 text-blue-600 shrink-0" />
+          <div>
+            <p className="font-semibold text-xs">
+              Mekanisme Sinkronisasi Google Sheets & Memori Aplikasi:
+            </p>
+            <p className="text-[11px] opacity-80 mt-0.5">
+              1) <strong>Membaca Data:</strong> Tombol <span className="font-bold">"Muat dari Spreadsheet"</span> akan langsung memperbarui tabel di aplikasi dari Google Sheets publik (tab LogTransaksi / CSV).
+              <br />
+              2) <strong>Menulis Data:</strong> Agar perubahan nilai (misal penerimaan Februari) di aplikasi otomatis terkirim kembali ke Google Sheets, pastikan <span className="font-bold">Webhook Apps Script</span> telah terpasang di menu Sinkronisasi.
+            </p>
+          </div>
+        </div>
+        {onSyncSpreadsheet && (
+          <button
+            onClick={onSyncSpreadsheet}
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shrink-0 transition-colors shadow-xs"
+          >
+            Muat Ulang Sekarang
+          </button>
+        )}
       </div>
 
       {/* ALERT BANNER: PENGINGAT PERKARA PUTUS/KADALUARSA DENGAN SALDO SISA */}

@@ -45,7 +45,8 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm install || npm ci
+        run: |
+          npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 
       - name: Sync Real-time Spreadsheet Data
         run: |
@@ -321,11 +322,15 @@ syncSpreadsheetData();
                   </span>
                 </li>
                 <li>
-                  <strong>Gagal di Step <code className="bg-rose-900/60 px-1 py-0.5 rounded font-mono">npm ci</code></strong>:
+                  <strong>Gagal di Step <code className="bg-rose-900/60 px-1.5 py-0.5 rounded font-mono text-rose-200">Install Dependencies</code> (Gagal npm ci)</strong>:
                   <br />
                   <span className="text-slate-300">
-                    Gunakan command <code className="font-mono">npm install || npm ci</code> pada YAML agar workflow tidak berhenti jika <code className="font-mono">package-lock.json</code> tidak cocok dengan versi Node.
+                    <code className="font-mono text-amber-300">npm ci</code> gagal apabila file <code className="font-mono text-amber-300">package-lock.json</code> tidak cocok dengan <code className="font-mono text-amber-300">package.json</code> (misalnya setelah ada penambahan library seperti <code className="font-mono">@headlessui/react</code>). Solusinya:
                   </span>
+                  <ul className="list-disc list-inside mt-1 ml-3 space-y-1 text-slate-300">
+                    <li>Gunakan command: <code className="font-mono bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700 text-emerald-400">npm ci --legacy-peer-deps || npm install --legacy-peer-deps</code> di file workflow YAML.</li>
+                    <li>Atau perbarui lockfile di komputer/proyek Anda dengan menjalankan <code className="font-mono bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700 text-amber-300">npm install</code> lalu lakukan git commit & push file <code className="font-mono">package-lock.json</code> terbaru.</li>
+                  </ul>
                 </li>
               </ol>
             </div>

@@ -1,4 +1,4 @@
-import { CaseRecord, JenisPerkara, KategoriPerkara, StatusPerkara } from '../types';
+import { CaseRecord, BiayaProsesRecord, JenisPerkara, KategoriPerkara, StatusPerkara } from '../types';
 
 export class SyncService {
   /**
@@ -115,7 +115,94 @@ export class SyncService {
   }
 
   /**
-   * Fetch Google Sheet CSV data if public publish link is given
+   * Parse CSV content into BiayaProsesRecord objects (Buku Bantu Biaya Proses).
+   */
+  static parseBiayaProsesCsv(csvText: string): BiayaProsesRecord[] {
+    const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length < 2) return [];
+
+    const parseCsvLine = (line: string): string[] => {
+      const result: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          result.push(current.trim().replace(/^"|"$/g, ''));
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim().replace(/^"|"$/g, ''));
+      return result;
+    };
+
+    const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase().trim());
+    const getIdx = (...possibleNames: string[]): number => {
+      for (const name of possibleNames) {
+        const idx = headers.findIndex(h => h.includes(name.toLowerCase()));
+        if (idx !== -1) return idx;
+      }
+      return -1;
+    };
+
+    const tglIdx = getIdx('tanggal', 'tgl');
+    const nomorIdx = getIdx('nomor perkara', 'nomor', 'no perkara', 'no');
+    const uraianIdx = getIdx('uraian', 'rincian', 'transaksi');
+    const penerimaanIdx = getIdx('penerimaan', 'masuk', 'debet');
+    const pengeluaranIdx = getIdx('pengeluaran', 'keluar', 'kredit');
+    const kategoriIdx = getIdx('kategori', 'jenis');
+    const ketIdx = getIdx('keterangan', 'catatan');
+
+    const cleanMoney = (val?: string): number => {
+      if (!val) return 0;
+      const cleaned = val.replace(/[^0-9,-]/g, '').replace(',', '.');
+      const num = parseFloat(cleaned);
+      return isNaN(num) ? 0 : Math.abs(num);
+    };
+
+    const records: BiayaProsesRecord[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCsvLine(lines[i]);
+      if (cols.length === 0 || !cols.some(c => c.length > 0)) continue;
+
+      const tanggal = tglIdx !== -1 && cols[tglIdx] ? cols[tglIdx] : new Date().toISOString().split('T')[0];
+      const nomorPerkara = nomorIdx !== -1 && cols[nomorIdx] ? cols[nomorIdx] : '-';
+      const uraian = uraianIdx !== -1 && cols[uraianIdx] ? cols[uraianIdx] : 'Transaksi Biaya Proses';
+      const penerimaan = penerimaanIdx !== -1 ? cleanMoney(cols[penerimaanIdx]) : 0;
+      const pengeluaran = pengeluaranIdx !== -1 ? cleanMoney(cols[pengeluaranIdx]) : 0;
+      const katRaw = kategoriIdx !== -1 ? cols[kategoriIdx] : 'ATK';
+      const keterangan = ketIdx !== -1 && cols[ketIdx] ? cols[ketIdx] : '-';
+
+      let kategori: 'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Lainnya' = 'ATK';
+      if (/proses/i.test(katRaw)) kategori = 'Proses';
+      else if (/meterai/i.test(katRaw)) kategori = 'Meterai';
+      else if (/redaksi/i.test(katRaw)) kategori = 'Redaksi';
+      else if (/panggil/i.test(katRaw)) kategori = 'Panggilan';
+      else if (/lain/i.test(katRaw)) kategori = 'Lainnya';
+
+      records.push({
+        id: `imported-bp-${Date.now()}-${i}`,
+        tanggal,
+        nomorPerkara,
+        uraian,
+        penerimaan,
+        pengeluaran,
+        kategori,
+        keterangan,
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    return records;
+  }
+
+  /**
+   * Fetch Google Sheet CSV data for Cases
    */
   static async fetchGoogleSheetCsv(url: string): Promise<CaseRecord[]> {
     let csvUrl = url.trim();
@@ -144,6 +231,32 @@ export class SyncService {
   }
 
   /**
+   * Fetch Google Sheet CSV data for LogTransaksi / Buku Biaya Proses
+   */
+  static async fetchGoogleSheetBiayaProsesCsv(url: string): Promise<BiayaProsesRecord[]> {
+    let csvUrl = url.trim();
+    
+    // Check if sheet=LogTransaksi can be requested
+    if (csvUrl.includes('docs.google.com/spreadsheets/d/')) {
+      const match = csvUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      if (match && match[1]) {
+        const sheetId = match[1];
+        // Try fetching LogTransaksi tab
+        csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=LogTransaksi`;
+      }
+    }
+
+    try {
+      const response = await fetch(csvUrl);
+      if (!response.ok) return [];
+      const text = await response.text();
+      return this.parseBiayaProsesCsv(text);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Post data payload to Google Apps Script Webhook
    */
   static async postToWebhook(webhookUrl: string, action: string, record: any): Promise<boolean> {
@@ -164,3 +277,4 @@ export class SyncService {
     }
   }
 }
+
