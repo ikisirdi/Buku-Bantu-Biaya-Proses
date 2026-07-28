@@ -1041,14 +1041,55 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Nomor Perkara (Kolom 3 - Opsional)</label>
-                  <input
-                    type="text"
-                    placeholder="Contoh: 14/Pdt.G/2026/PA.Pan atau -"
-                    value={formNomorPerkara}
-                    onChange={(e) => setFormNomorPerkara(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-mono"
-                  />
+                  <label className="block text-slate-300 font-semibold mb-1">
+                    Nomor Perkara (Kolom 3 - Opsional)
+                  </label>
+                  
+                  {/* Select dropdown auto-populated from DataPerkara sheet */}
+                  <select
+                    value={cases.some(c => c.nomorPerkara === formNomorPerkara) ? formNomorPerkara : (formNomorPerkara === '-' ? '-' : 'custom')}
+                    onChange={(e) => {
+                      if (e.target.value !== 'custom') {
+                        setFormNomorPerkara(e.target.value);
+                      }
+                    }}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-xs font-mono font-bold mb-1.5"
+                  >
+                    <option value="custom">-- 🔍 Pilihan Otomatis / Ketik Manual --</option>
+                    <option value="-">- (Non-Perkara / Transaksi Umum)</option>
+                    {cases.length > 0 && (
+                      <optgroup label="📋 Dipanggil Otomatis dari Sheet DataPerkara:">
+                        {cases.map((c) => (
+                          <option key={c.id} value={c.nomorPerkara}>
+                            {c.nomorPerkara} — {c.namaPihak} ({c.jenisPerkara})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+
+                  {/* Input field with datalist autocomplete */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      list="data-perkara-list"
+                      placeholder="Contoh: 14/Pdt.G/2026/PA.Pan atau -"
+                      value={formNomorPerkara}
+                      onChange={(e) => setFormNomorPerkara(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-mono text-xs"
+                    />
+                    <datalist id="data-perkara-list">
+                      <option value="-" />
+                      {cases.map((c) => (
+                        <option key={c.id} value={c.nomorPerkara}>
+                          {c.namaPihak} ({c.jenisPerkara})
+                        </option>
+                      ))}
+                    </datalist>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    💡 Terhubung otomatis dengan sheet <strong>DataPerkara</strong> ({cases.length} perkara tersedia). Anda juga dapat memilih langsung dari dropdown atau mengetik manual.
+                  </p>
                 </div>
 
                 <div>
