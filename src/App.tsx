@@ -18,6 +18,7 @@ import { NotificationCenter } from './components/NotificationCenter';
 import { GitHubWorkflowModal } from './components/GitHubWorkflowModal';
 import { CacheManagerModal } from './components/CacheManagerModal';
 import { CaseDetailModal } from './components/CaseDetailModal';
+import { JurnalBiayaModal } from './components/JurnalBiayaModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'table' | 'buku-biaya-proses'>('buku-biaya-proses');
@@ -53,6 +54,8 @@ export default function App() {
   const [isCacheModalOpen, setIsCacheModalOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [selectedCaseDetail, setSelectedCaseDetail] = useState<CaseRecord | null>(null);
+  const [isJurnalModalOpen, setIsJurnalModalOpen] = useState(false);
+  const [jurnalSelectedCase, setJurnalSelectedCase] = useState<CaseRecord | null>(null);
 
   // Load Initial Data from Storage / Cache & merge with fresh public data / Google Sheet
   const loadDataFromSource = useCallback(async (isForceSpreadsheetOverwrite = false) => {
@@ -304,6 +307,62 @@ export default function App() {
       `Sisa saldo perkara ${caseNumber} sebesar Rp ${totalExpense.toLocaleString('id-ID')} telah dialokasikan hingga saldo menjadi Rp0.`,
       'success',
       caseNumber
+    );
+  };
+
+  // Handle Jurnal SKUM execution per case
+  const handleExecuteJurnal = (
+    caseId: string,
+    nomorPerkara: string,
+    journalItems: { uraian: string; amount: number; kategori: 'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Lainnya' }[]
+  ) => {
+    const today = new Date().toISOString().split('T')[0];
+    const newRecords: BiayaProsesRecord[] = journalItems.map((item, idx) => ({
+      id: `jurnal-${Date.now()}-${idx}`,
+      tanggal: today,
+      nomorPerkara,
+      uraian: item.uraian,
+      penerimaan: item.kategori === 'ATK' ? item.amount : 0,
+      pengeluaran: item.kategori !== 'ATK' ? item.amount : 0,
+      keterangan: 'Pencatatan Jurnal SKUM Biaya',
+      kategori: item.kategori,
+      createdAt: new Date().toISOString()
+    }));
+
+    const totalDeduction = journalItems.reduce((acc, item) => acc + item.amount, 0);
+
+    // Update Biaya Proses Records
+    const updatedRecords = [...biayaProsesRecords, ...newRecords];
+    updateBiayaProsesState(updatedRecords);
+
+    // Deduct case balance
+    const updatedCases = cases.map(c => {
+      if (c.id === caseId || c.nomorPerkara === nomorPerkara) {
+        const nextSaldo = Math.max(0, (c.saldoPerkara || 0) - totalDeduction);
+        return {
+          ...c,
+          pengeluaran: (c.pengeluaran || 0) + totalDeduction,
+          saldoPerkara: nextSaldo,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return c;
+    });
+    updateCasesState(updatedCases);
+
+    // Webhook push
+    const webhook = getWebhookUrl(syncSettings);
+    if (webhook) {
+      newRecords.forEach(rec => {
+        SyncService.postToWebhook(webhook, 'add_biaya_proses', rec);
+      });
+    }
+
+    addNotification(
+      'Eksekusi Jurnal Biaya SKUM',
+      `Jurnal biaya SKUM untuk perkara ${nomorPerkara} berhasil dicatat. Total potongan panjar: Rp ${totalDeduction.toLocaleString('id-ID')}. Potongan ATK otomatis masuk ke Buku Bantu Biaya Proses.`,
+      'success',
+      nomorPerkara
     );
   };
 
@@ -594,6 +653,19 @@ export default function App() {
           setEditingRecord(record);
           setIsFormOpen(true);
         }}
+        onOpenJurnal={(record) => {
+          setJurnalSelectedCase(record);
+          setIsJurnalModalOpen(true);
+        }}
+      />
+
+      <JurnalBiayaModal
+        isOpen={isJurnalModalOpen}
+        onClose={() => setIsJurnalModalOpen(false)}
+        cases={cases}
+        selectedCase={jurnalSelectedCase}
+        onExecuteJurnal={handleExecuteJurnal}
+        theme={theme}
       />
 
     </div>

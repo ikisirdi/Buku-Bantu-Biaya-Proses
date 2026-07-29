@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { BiayaProsesRecord, CaseRecord } from '../types';
+import { Lipa7aReportModal } from './Lipa7aReportModal';
 import { 
   Printer, 
   PlusCircle, 
@@ -81,6 +82,7 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isAtkModalOpen, setIsAtkModalOpen] = useState<boolean>(false);
+  const [isLipa7aOpen, setIsLipa7aOpen] = useState<boolean>(false);
 
   // States for Auto-Zeroing Saldo Perkara Modal
   const [isZeroingModalOpen, setIsZeroingModalOpen] = useState<boolean>(false);
@@ -239,6 +241,22 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
   const totalAllTimePenerimaan = useMemo(() => records.reduce((s, r) => s + (r.penerimaan || 0), 0), [records]);
   const totalAllTimePengeluaran = useMemo(() => records.reduce((s, r) => s + (r.pengeluaran || 0), 0), [records]);
   const saldoAkumulasi = totalAllTimePenerimaan - totalAllTimePengeluaran;
+
+  // Calculate ATK process balance per case number (Nomor Perkara)
+  const atkBalanceByCase = useMemo(() => {
+    const map: Record<string, { penerimaan: number; pengeluaran: number; saldo: number }> = {};
+    records.forEach(r => {
+      const no = (r.nomorPerkara || '').trim();
+      if (!no || no === '-') return;
+      if (!map[no]) {
+        map[no] = { penerimaan: 0, pengeluaran: 0, saldo: 0 };
+      }
+      map[no].penerimaan += r.penerimaan || 0;
+      map[no].pengeluaran += r.pengeluaran || 0;
+      map[no].saldo = map[no].penerimaan - map[no].pengeluaran;
+    });
+    return map;
+  }, [records]);
 
   const formatRupiah = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -436,10 +454,21 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
           <button
             id="print-buku-bantu-btn"
             onClick={handlePrintTrigger}
-            className="flex items-center space-x-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95"
+            className="flex items-center space-x-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95"
           >
             <Printer className="w-4 h-4" />
             <span>Cetak Rekap Bulanan</span>
+          </button>
+
+          {/* LIPA.7a Official Report Button */}
+          <button
+            id="open-lipa7a-btn"
+            onClick={() => setIsLipa7aOpen(true)}
+            className="flex items-center space-x-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 border border-emerald-500/40"
+            title="Cetak Laporan Keuangan Perkara (LIPA.7a) Format Resmi"
+          >
+            <FileText className="w-4 h-4 text-emerald-200" />
+            <span>Cetak LIPA.7a Resmi</span>
           </button>
         </div>
       </div>
@@ -624,6 +653,61 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
         </div>
 
       </div>
+
+      {/* BREAKDOWN SALDO ATK BIAYA PROSES PER NOMOR PERKARA (REQUIREMENT #4) */}
+      <details className={`border rounded-2xl p-4 transition-colors group ${
+        isLight ? 'bg-amber-50/50 border-amber-200 text-slate-800' : 'bg-slate-900/90 border-amber-900/50 text-slate-100'
+      }`}>
+        <summary className="cursor-pointer font-bold text-xs uppercase tracking-wide flex items-center justify-between select-none">
+          <div className="flex items-center space-x-2">
+            <BookOpen className="w-4 h-4 text-amber-600" />
+            <span className="text-amber-800 dark:text-amber-400 font-extrabold">
+              📊 Rincian Saldo ATK & Biaya Proses Per Nomor Perkara ({Object.keys(atkBalanceByCase).length} Perkara Terkumpul)
+            </span>
+          </div>
+          <span className="text-amber-600 text-[10px] group-open:rotate-180 transition-transform">▼ Klik untuk Buka/Tutup</span>
+        </summary>
+
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className={`border-b font-bold text-[11px] ${isLight ? 'bg-amber-100/70 text-amber-900' : 'bg-slate-800 text-amber-300'}`}>
+                <th className="p-2">Nomor Perkara</th>
+                <th className="p-2 text-right">Potongan ATK Masuk</th>
+                <th className="p-2 text-right">Pengeluaran / Belanja</th>
+                <th className="p-2 text-right">Sisa Saldo ATK Perkara</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-amber-200/60 dark:divide-slate-800 text-[11px]">
+              {Object.keys(atkBalanceByCase).length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="p-3 text-center text-slate-500 italic">
+                    Belum ada potongan ATK atau biaya proses per nomor perkara.
+                  </td>
+                </tr>
+              ) : (
+                (Object.entries(atkBalanceByCase) as [string, { penerimaan: number; pengeluaran: number; saldo: number }][]).map(([noCase, data]) => (
+                  <tr key={noCase} className="hover:bg-amber-100/30 dark:hover:bg-slate-800/50">
+                    <td className="p-2 font-mono font-bold text-amber-800 dark:text-amber-300">{noCase}</td>
+                    <td className="p-2 text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                      {formatRupiah(data.penerimaan)}
+                    </td>
+                    <td className="p-2 text-right font-mono font-semibold text-rose-600 dark:text-rose-400">
+                      {formatRupiah(data.pengeluaran)}
+                    </td>
+                    <td className="p-2 text-right font-mono font-bold text-amber-600 dark:text-amber-300">
+                      {formatRupiah(data.saldo)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 italic">
+            💡 Setiap potongan panjar ATK saat register perkara atau Jurnal SKUM otomatis menambah saldo ATK per nomor perkara. Ketika log transaksi belanja diinput untuk nomor perkara tersebut, saldo ATK per perkara otomatis terpotong secara transparan.
+          </p>
+        </div>
+      </details>
 
       {/* MONTHLY REKAP SELECTOR & SEARCH BAR */}
       <div className={`border rounded-2xl p-4 flex flex-col lg:flex-row items-center justify-between gap-4 transition-colors ${
@@ -1608,6 +1692,15 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
           </div>
         </div>
       )}
+
+      {/* LIPA.7a Official Report Printable Modal */}
+      <Lipa7aReportModal
+        isOpen={isLipa7aOpen}
+        onClose={() => setIsLipa7aOpen(false)}
+        biayaProsesRecords={records}
+        cases={cases}
+        theme={theme}
+      />
 
     </div>
   );

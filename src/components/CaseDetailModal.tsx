@@ -7,9 +7,10 @@ interface CaseDetailModalProps {
   record: CaseRecord | null;
   onClose: () => void;
   onEdit: (record: CaseRecord) => void;
+  onOpenJurnal?: (record: CaseRecord) => void;
 }
 
-export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({ record, onClose, onEdit }) => {
+export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({ record, onClose, onEdit, onOpenJurnal }) => {
   if (!record) return null;
 
   const formatRupiah = (amount: number) => {
@@ -149,16 +150,29 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({ record, onClos
               </div>
 
               {/* Footer Actions */}
-              <div className="px-6 py-4 bg-slate-800/80 border-t border-slate-700 flex justify-between shrink-0 print:hidden">
-                <button
-                  onClick={() => {
-                    onClose();
-                    onEdit(record);
-                  }}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-md"
-                >
-                  Edit Data
-                </button>
+              <div className="px-6 py-4 bg-slate-800/80 border-t border-slate-700 flex justify-between shrink-0 print:hidden gap-2">
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onEdit(record);
+                    }}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-md"
+                  >
+                    Edit Data
+                  </button>
+                  {onOpenJurnal && (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onOpenJurnal(record);
+                      }}
+                      className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold transition-all shadow-md flex items-center space-x-1"
+                    >
+                      <span>🧮 Jurnal SKUM Biaya</span>
+                    </button>
+                  )}
+                </div>
                 <button
                   onClick={onClose}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors"

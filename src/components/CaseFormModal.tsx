@@ -54,16 +54,17 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
       setRuangSidang(recordToEdit.ruangSidang || 'Ruang Utama Cakra');
       setCatatan(recordToEdit.catatan || '');
     } else {
-      // Auto-generate new case number
+      // Auto-generate new case number with 2-digit padding format (e.g. 01/Pdt.G/2026/PA.Pan)
       const nextNum = totalCasesCount + 1;
-      const code = jenisPerkara.toLowerCase().includes('penetapan') || jenisPerkara.toLowerCase().includes('permohonan') ? 'Pdt.P' : 'Pdt.G';
-      setNomorPerkara(`${nextNum}/${code}/2026/PA.Pan`);
+      const formattedNum = String(nextNum).padStart(2, '0');
+      const code = jenisPerkara.toLowerCase().includes('penetapan') || jenisPerkara.toLowerCase().includes('permohonan') || jenisPerkara.toLowerCase().includes('dispen') || jenisPerkara.toLowerCase().includes('wali') ? 'Pdt.P' : 'Pdt.G';
+      setNomorPerkara(`${formattedNum}/${code}/2026/PA.Pan`);
       setNamaPihak('');
       setJenisPerkara('Cerai Gugat');
       setKategoriPerkara('Gugatan');
-      setPanjarAwal(1000000);
-      setPengeluaran(1000000);
-      setSaldoPerkara(0);
+      setPanjarAwal(690000); // Default SKUM Cerai Gugat / Cerai Talak Rp 690.000
+      setPengeluaran(0);
+      setSaldoPerkara(690000);
       setTanggalRegister(new Date().toISOString().split('T')[0]);
       setTanggalTerimaKasasiPk('');
       setTanggalPutus('');
@@ -84,20 +85,29 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
     setSaldoPerkara(Math.max(0, panjarAwal - val));
   };
 
-  // Adjust Kategori automatically based on Jenis Perkara
+  // Adjust Kategori automatically based on Jenis Perkara & apply default SKUM
   const handleJenisChange = (newJenis: JenisPerkara) => {
     setJenisPerkara(newJenis);
+    const nextNum = totalCasesCount + 1;
+    const formattedNum = String(nextNum).padStart(2, '0');
+
     if (newJenis === 'Penetapan Ahli Waris' || newJenis === 'Dispensasi Nikah' || newJenis === 'Wali Adhal' || newJenis === 'Hibah' || newJenis === 'Wasiat') {
       setKategoriPerkara('Permohonan');
       if (!recordToEdit) {
-        const nextNum = totalCasesCount + 1;
-        setNomorPerkara(`${nextNum}/Pdt.P/2026/PA.Pan`);
+        setNomorPerkara(`${formattedNum}/Pdt.P/2026/PA.Pan`);
+        // Default SKUM Permohonan/Isbat
+        const defaultSkum = newJenis === 'Dispensasi Nikah' || newJenis === 'Wali Adhal' ? 160000 : 170000;
+        setPanjarAwal(defaultSkum);
+        setSaldoPerkara(defaultSkum);
       }
     } else {
       setKategoriPerkara('Gugatan');
       if (!recordToEdit) {
-        const nextNum = totalCasesCount + 1;
-        setNomorPerkara(`${nextNum}/Pdt.G/2026/PA.Pan`);
+        setNomorPerkara(`${formattedNum}/Pdt.G/2026/PA.Pan`);
+        // Default SKUM Gugatan/CG/CT
+        const defaultSkum = 690000;
+        setPanjarAwal(defaultSkum);
+        setSaldoPerkara(defaultSkum);
       }
     }
   };
@@ -275,23 +285,34 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    handlePanjarChange(567200);
+                    handlePanjarChange(690000);
                   }}
                   className="bg-slate-800 hover:bg-emerald-900/40 border border-slate-700 hover:border-emerald-500/50 text-slate-200 hover:text-emerald-300 p-1.5 rounded text-left transition-all flex flex-col"
                 >
-                  <span className="font-semibold text-[10px]">Cerai Talak</span>
-                  <span className="text-emerald-400 font-bold text-xs">Rp 567.200</span>
+                  <span className="font-semibold text-[10px]">Cerai Talak (SKUM CG/CT)</span>
+                  <span className="text-emerald-400 font-bold text-xs">Rp 690.000</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
-                    handlePanjarChange(469800);
+                    handlePanjarChange(690000);
                   }}
                   className="bg-slate-800 hover:bg-emerald-900/40 border border-slate-700 hover:border-emerald-500/50 text-slate-200 hover:text-emerald-300 p-1.5 rounded text-left transition-all flex flex-col"
                 >
-                  <span className="font-semibold text-[10px]">Cerai Gugat</span>
-                  <span className="text-emerald-400 font-bold text-xs">Rp 469.800</span>
+                  <span className="font-semibold text-[10px]">Cerai Gugat (SKUM CG/CT)</span>
+                  <span className="text-emerald-400 font-bold text-xs">Rp 690.000</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handlePanjarChange(170000);
+                  }}
+                  className="bg-slate-800 hover:bg-emerald-900/40 border border-slate-700 hover:border-emerald-500/50 text-slate-200 hover:text-emerald-300 p-1.5 rounded text-left transition-all flex flex-col"
+                >
+                  <span className="font-semibold text-[10px]">Isbat Nikah</span>
+                  <span className="text-emerald-400 font-bold text-xs">Rp 170.000</span>
                 </button>
 
                 <button
@@ -302,17 +323,6 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
                   className="bg-slate-800 hover:bg-emerald-900/40 border border-slate-700 hover:border-emerald-500/50 text-slate-200 hover:text-emerald-300 p-1.5 rounded text-left transition-all flex flex-col"
                 >
                   <span className="font-semibold text-[10px]">Dispensasi Kawin</span>
-                  <span className="text-emerald-400 font-bold text-xs">Rp 160.000</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    handlePanjarChange(160000);
-                  }}
-                  className="bg-slate-800 hover:bg-emerald-900/40 border border-slate-700 hover:border-emerald-500/50 text-slate-200 hover:text-emerald-300 p-1.5 rounded text-left transition-all flex flex-col"
-                >
-                  <span className="font-semibold text-[10px]">Isbat Nikah</span>
                   <span className="text-emerald-400 font-bold text-xs">Rp 160.000</span>
                 </button>
 
