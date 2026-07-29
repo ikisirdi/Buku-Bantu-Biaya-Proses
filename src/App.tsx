@@ -580,6 +580,10 @@ export default function App() {
             }}
             onSelectCase={(record) => setSelectedCaseDetail(record)}
             onDeleteCase={handleDeleteCase}
+            onOpenJurnal={(record) => {
+              setJurnalSelectedCase(record || cases[0]);
+              setIsJurnalModalOpen(true);
+            }}
             theme={theme}
           />
         )}

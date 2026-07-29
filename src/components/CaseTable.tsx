@@ -32,6 +32,7 @@ interface CaseTableProps {
   onOpenForm: (recordToEdit?: CaseRecord) => void;
   onSelectCase: (record: CaseRecord) => void;
   onDeleteCase: (id: string) => void;
+  onOpenJurnal?: (record: CaseRecord) => void;
   theme?: 'light' | 'dark';
 }
 
@@ -42,6 +43,7 @@ export const CaseTable: React.FC<CaseTableProps> = ({
   onOpenForm,
   onSelectCase,
   onDeleteCase,
+  onOpenJurnal,
   theme = 'light'
 }) => {
   const isLight = theme === 'light';
@@ -191,6 +193,17 @@ export const CaseTable: React.FC<CaseTableProps> = ({
             <Download className="w-3.5 h-3.5 text-blue-600" />
             <span>Ekspor JSON</span>
           </button>
+
+          {/* Jurnal SKUM Modal Trigger */}
+          {onOpenJurnal && (
+            <button
+              onClick={() => onOpenJurnal(cases[0])}
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+              title="Catat Jurnal SKUM Biaya Perkara"
+            >
+              <span>🧮 Jurnal SKUM</span>
+            </button>
+          )}
 
           {/* Add New */}
           <button
@@ -423,6 +436,15 @@ export const CaseTable: React.FC<CaseTableProps> = ({
 
                   {/* Actions */}
                   <td className="px-4 py-3 text-right whitespace-nowrap space-x-1">
+                    {onOpenJurnal && (
+                      <button
+                        onClick={() => onOpenJurnal(item)}
+                        className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 font-bold text-[10px] border border-amber-500/30 transition-colors"
+                        title="Catat Jurnal SKUM Perkara Ini"
+                      >
+                        🧮 Jurnal
+                      </button>
+                    )}
                     <button
                       onClick={() => onSelectCase(item)}
                       className={`p-1.5 rounded border transition-colors ${

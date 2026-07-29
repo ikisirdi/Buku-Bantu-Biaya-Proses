@@ -212,8 +212,8 @@ export const INITIAL_BIAYA_PROSES_RECORDS: BiayaProsesRecord[] = [
 
 
 export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
-  autoSyncEnabled: false,
-  googleSheetUrl: '',
+  autoSyncEnabled: true,
+  googleSheetUrl: 'https://script.google.com/macros/s/AKfycbx_N2FEFTTruxZzyR5BzVRted8jpgE-qTSABwivhx0_s7v8aDR1VIpIsxhlABbY6jQs/exec',
   syncIntervalMinutes: 15,
   syncStatus: 'idle',
 };

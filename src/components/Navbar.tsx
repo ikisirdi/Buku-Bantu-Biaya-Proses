@@ -142,35 +142,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span>Cache: {cacheMeta.cacheHitCount} hits</span>
             </button>
 
-            {/* Sync Spreadsheet Modal Trigger */}
-            <button
-              id="sync-spreadsheet-btn"
-              onClick={onOpenSyncModal}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
-                isLight
-                  ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
-                  : 'bg-emerald-900/40 hover:bg-emerald-900/60 text-emerald-300 border-emerald-700/60'
-              }`}
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="hidden sm:inline">Sinkron Data</span>
-            </button>
-
-            {/* GitHub Actions & Pages Modal Trigger */}
-            <button
-              id="github-actions-btn"
-              onClick={onOpenGithubModal}
-              title="GitHub Actions & GitHub Pages Deploy Manager"
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
-                isLight 
-                  ? 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200' 
-                  : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
-              }`}
-            >
-              <Github className="w-3.5 h-3.5 text-slate-700" />
-              <span className="hidden md:inline">GitHub Pages</span>
-            </button>
-
             {/* Notification Bell Button */}
             <button
               id="notif-bell-btn"
