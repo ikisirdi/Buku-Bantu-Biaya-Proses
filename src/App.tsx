@@ -226,8 +226,15 @@ export default function App() {
   };
 
   const handleDeleteBiayaProsesRecord = (id: string) => {
+    const target = biayaProsesRecords.find(r => r.id === id);
     const updated = biayaProsesRecords.filter(r => r.id !== id);
     updateBiayaProsesState(updated);
+
+    const webhook = getWebhookUrl(syncSettings);
+    if (webhook && target) {
+      SyncService.postToWebhook(webhook, 'delete_biaya_proses', target);
+    }
+
     addNotification('Log Transaksi Dihapus', 'Satu log transaksi telah dihapus dari Buku Bantu Biaya Proses.', 'warning');
   };
 
@@ -246,9 +253,29 @@ export default function App() {
     const updated = [...biayaProsesRecords, newRecord];
     updateBiayaProsesState(updated);
 
+    let updatedCaseRecord: CaseRecord | undefined;
+    const updatedCases = cases.map(c => {
+      if (c.nomorPerkara === nomorPerkara) {
+        updatedCaseRecord = {
+          ...c,
+          pengeluaran: (c.pengeluaran || 0) + amount,
+          saldoPerkara: Math.max(0, (c.saldoPerkara || 0) - amount),
+          updatedAt: new Date().toISOString()
+        };
+        return updatedCaseRecord;
+      }
+      return c;
+    });
+    if (updatedCaseRecord) {
+      updateCasesState(updatedCases);
+    }
+
     const webhook = getWebhookUrl(syncSettings);
     if (webhook) {
       SyncService.postToWebhook(webhook, 'add_biaya_proses', newRecord);
+      if (updatedCaseRecord) {
+        SyncService.postToWebhook(webhook, 'update_case', updatedCaseRecord);
+      }
     }
 
     addNotification(
@@ -282,25 +309,30 @@ export default function App() {
     const updatedRecords = [...biayaProsesRecords, ...newRecords];
     updateBiayaProsesState(updatedRecords);
 
-    const webhook = getWebhookUrl(syncSettings);
-    if (webhook) {
-      newRecords.forEach(rec => {
-        SyncService.postToWebhook(webhook, 'add_biaya_proses', rec);
-      });
-    }
-
+    let targetUpdatedCase: CaseRecord | undefined;
     const updatedCases = cases.map(c => {
       if (c.nomorPerkara === caseNumber) {
-        return {
+        targetUpdatedCase = {
           ...c,
           pengeluaran: (c.pengeluaran || 0) + totalExpense,
           saldoPerkara: 0,
           updatedAt: new Date().toISOString()
         };
+        return targetUpdatedCase;
       }
       return c;
     });
     updateCasesState(updatedCases);
+
+    const webhook = getWebhookUrl(syncSettings);
+    if (webhook) {
+      newRecords.forEach(rec => {
+        SyncService.postToWebhook(webhook, 'add_biaya_proses', rec);
+      });
+      if (targetUpdatedCase) {
+        SyncService.postToWebhook(webhook, 'update_case', targetUpdatedCase);
+      }
+    }
 
     addNotification(
       'Saldo Zero-Out Berhasil',
@@ -337,15 +369,17 @@ export default function App() {
     updateBiayaProsesState(updatedRecords);
 
     // Deduct case balance
+    let targetUpdatedCase: CaseRecord | undefined;
     const updatedCases = cases.map(c => {
       if (c.id === caseId || c.nomorPerkara === nomorPerkara) {
         const nextSaldo = Math.max(0, (c.saldoPerkara || 0) - totalDeduction);
-        return {
+        targetUpdatedCase = {
           ...c,
           pengeluaran: (c.pengeluaran || 0) + totalDeduction,
           saldoPerkara: nextSaldo,
           updatedAt: new Date().toISOString()
         };
+        return targetUpdatedCase;
       }
       return c;
     });
@@ -357,6 +391,9 @@ export default function App() {
       newRecords.forEach(rec => {
         SyncService.postToWebhook(webhook, 'add_biaya_proses', rec);
       });
+      if (targetUpdatedCase) {
+        SyncService.postToWebhook(webhook, 'update_case', targetUpdatedCase);
+      }
     }
 
     addNotification(
@@ -460,10 +497,15 @@ export default function App() {
     const updated = cases.filter(c => c.id !== id);
     updateCasesState(updated);
 
+    const webhook = getWebhookUrl(syncSettings);
+    if (webhook && target) {
+      SyncService.postToWebhook(webhook, 'delete_case', target);
+    }
+
     if (target) {
       addNotification(
         'Perkara Dihapus',
-        `Data perkara ${target.nomorPerkara} telah dihapus dari basis data JSON lokal.`,
+        `Data perkara ${target.nomorPerkara} telah dihapus dari basis data.`,
         'warning'
       );
     }

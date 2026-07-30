@@ -202,11 +202,42 @@ export class SyncService {
   }
 
   /**
+   * Fetch structured JSON directly from Google Apps Script Web App (doGet)
+   */
+  static async fetchFromAppsScript(url: string): Promise<{ cases: CaseRecord[]; biayaProses: BiayaProsesRecord[] } | null> {
+    const targetUrl = url.trim();
+    if (!targetUrl || !targetUrl.includes('script.google.com')) return null;
+
+    try {
+      const response = await fetch(targetUrl);
+      if (!response.ok) return null;
+      const json = await response.json();
+      if (json && (json.status === 'success' || Array.isArray(json.cases) || Array.isArray(json.biayaProses))) {
+        return {
+          cases: Array.isArray(json.cases) ? json.cases : [],
+          biayaProses: Array.isArray(json.biayaProses) ? json.biayaProses : []
+        };
+      }
+    } catch (err) {
+      console.warn('Gagal membaca data dari Apps Script Web App:', err);
+    }
+    return null;
+  }
+
+  /**
    * Fetch Google Sheet CSV data for Cases
    */
   static async fetchGoogleSheetCsv(url: string): Promise<CaseRecord[]> {
     let csvUrl = url.trim();
     
+    // If Apps Script Web App URL, fetch structured JSON
+    if (csvUrl.includes('script.google.com')) {
+      const appsScriptData = await this.fetchFromAppsScript(csvUrl);
+      if (appsScriptData && appsScriptData.cases.length > 0) {
+        return appsScriptData.cases;
+      }
+    }
+
     // Transform pubhtml or view URL to published CSV format
     if (csvUrl.includes('/pubhtml')) {
       csvUrl = csvUrl.replace('/pubhtml', '/pub');
@@ -235,6 +266,13 @@ export class SyncService {
    */
   static async fetchGoogleSheetBiayaProsesCsv(url: string): Promise<BiayaProsesRecord[]> {
     let csvUrl = url.trim();
+
+    if (csvUrl.includes('script.google.com')) {
+      const appsScriptData = await this.fetchFromAppsScript(csvUrl);
+      if (appsScriptData && appsScriptData.biayaProses.length > 0) {
+        return appsScriptData.biayaProses;
+      }
+    }
     
     // Check if sheet=LogTransaksi can be requested
     if (csvUrl.includes('docs.google.com/spreadsheets/d/')) {
@@ -262,13 +300,19 @@ export class SyncService {
   static async postToWebhook(webhookUrl: string, action: string, record: any): Promise<boolean> {
     if (!webhookUrl || !webhookUrl.startsWith('http')) return false;
     try {
+      const payloadData = {
+        action,
+        payload: record,
+        record: record,
+        rec: record,
+        timestamp: new Date().toISOString()
+      };
       await fetch(webhookUrl, {
         method: 'POST',
-        mode: 'no-cors', // Apps Script CORS handling
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'text/plain;charset=utf-8',
         },
-        body: JSON.stringify({ action, record, timestamp: new Date().toISOString() })
+        body: JSON.stringify(payloadData)
       });
       return true;
     } catch (err) {

@@ -40,100 +40,207 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
   const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [copiedScript, setCopiedScript] = useState<boolean>(false);
 
-  const appScriptCode = `// PASTE KODE INI DI GOOGLE SHEETS: Extensions > Apps Script
-function doPost(e) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var data = JSON.parse(e.postData.contents);
-  var action = data.action;
-  var rec = data.record || {};
-  
-  if (action === 'add_case' || action === 'update_case') {
-    var sheetData = ss.getSheetByName('DataPerkara') || ss.getActiveSheet();
-    var values = sheetData.getDataRange().getValues();
-    var targetRowIndex = -1;
-    var targetNomor = (rec.nomorPerkara || '').toString().trim().toLowerCase();
+  const appScriptCode = `/**
+ * ==============================================================================
+ * GOOGLE APPS SCRIPT (kode.gs) - SISTEM KEUANGAN PERKARA & BIAYA PROSES PA BANJARBARU
+ * Paste kode ini di: Extensions > Apps Script pada Spreadsheet Anda.
+ * Kemudian klik Deploy > New deployment > Select type: Web App
+ * - Execute as: Me
+ * - Who has access: Anyone
+ * ==============================================================================
+ */
 
-    // Cari baris berdasarkan nomor_perkara (Kolom 1)
-    for (var i = 1; i < values.length; i++) {
-      var cellVal = (values[i][0] || '').toString().trim().toLowerCase();
-      if (cellVal && cellVal === targetNomor) {
-        targetRowIndex = i + 1; // Indeks baris 1-indexed di Sheets
-        break;
+function getSpreadsheet() {
+  return SpreadsheetApp.getActiveSpreadsheet();
+}
+
+function setupSheets() {
+  var ss = getSpreadsheet();
+  var sheetPerkara = ss.getSheetByName('DataPerkara');
+  if (!sheetPerkara) {
+    sheetPerkara = ss.insertSheet('DataPerkara');
+    sheetPerkara.appendRow([
+      'ID', 'Nomor Perkara', 'Nama Pihak', 'Jenis Perkara', 'Kategori Perkara',
+      'Panjar Awal', 'Pengeluaran', 'Saldo Perkara', 'Tanggal Register', 'Catatan', 'Updated At'
+    ]);
+    sheetPerkara.getRange('A1:K1').setFontWeight('bold').setBackground('#d1fae5');
+  }
+
+  var sheetBiaya = ss.getSheetByName('BukuBiayaProses') || ss.getSheetByName('LogTransaksi');
+  if (!sheetBiaya) {
+    sheetBiaya = ss.insertSheet('BukuBiayaProses');
+    sheetBiaya.appendRow([
+      'ID', 'Tanggal', 'Nomor Perkara', 'Uraian', 'Penerimaan',
+      'Pengeluaran', 'Kategori', 'Keterangan', 'Created At'
+    ]);
+    sheetBiaya.getRange('A1:I1').setFontWeight('bold').setBackground('#fef3c7');
+  }
+}
+
+function doGet(e) {
+  setupSheets();
+  var ss = getSpreadsheet();
+  
+  var sheetPerkara = ss.getSheetByName('DataPerkara');
+  var dataPerkaraRows = sheetPerkara.getDataRange().getValues();
+  var cases = [];
+  for (var i = 1; i < dataPerkaraRows.length; i++) {
+    var r = dataPerkaraRows[i];
+    if (r[0] && String(r[0]).trim() !== '') {
+      cases.push({
+        id: String(r[0]),
+        nomorPerkara: String(r[1] || ''),
+        namaPihak: String(r[2] || ''),
+        jenisPerkara: String(r[3] || 'Cerai Gugat'),
+        kategoriPerkara: String(r[4] || 'Gugatan'),
+        panjarAwal: Number(r[5]) || 0,
+        pengeluaran: Number(r[6]) || 0,
+        saldoPerkara: Number(r[7]) || 0,
+        tanggalRegister: r[8] ? Utilities.formatDate(new Date(r[8]), Session.getScriptTimeZone(), 'yyyy-MM-dd') : '',
+        catatan: String(r[9] || ''),
+        updatedAt: String(r[10] || '')
+      });
+    }
+  }
+
+  var sheetBiaya = ss.getSheetByName('BukuBiayaProses') || ss.getSheetByName('LogTransaksi') || ss.getSheetByName('BukuBantu');
+  var biayaProses = [];
+  if (sheetBiaya) {
+    var dataBiayaRows = sheetBiaya.getDataRange().getValues();
+    for (var j = 1; j < dataBiayaRows.length; j++) {
+      var b = dataBiayaRows[j];
+      if (b[0] && String(b[0]).trim() !== '') {
+        biayaProses.push({
+          id: String(b[0]),
+          tanggal: b[1] ? Utilities.formatDate(new Date(b[1]), Session.getScriptTimeZone(), 'yyyy-MM-dd') : '',
+          nomorPerkara: String(b[2] || '-'),
+          uraian: String(b[3] || ''),
+          penerimaan: Number(b[4]) || 0,
+          pengeluaran: Number(b[5]) || 0,
+          kategori: String(b[6] || 'Proses'),
+          keterangan: String(b[7] || ''),
+          createdAt: String(b[8] || '')
+        });
       }
     }
+  }
 
-    var rowValues = [
-      rec.nomorPerkara || '',             // 1. nomor_perkara
-      rec.namaPihak || '',                // 2. nama_pihak
-      rec.jenisPerkara || '',             // 3. jenis_perkara
-      rec.tingkatPerkara || 'Tingkat Pertama', // 4. tingkat_perkara
-      rec.tanggalRegister || '',          // 5. tanggal_register
-      rec.tanggalTerimaKasasiPk || '',    // 6. tanggal_terima_kasasi_pk
-      rec.tanggalPutus || '',             // 7. tanggal_putus
-      rec.status || 'Diperiksa',          // 8. status
-      rec.panjarAwal || 0,                // 9. panjar_awal
-      'Aktif',                            // 10. Aksi
-      rec.pengeluaran || 0,               // 11. pengeluaran
-      rec.saldoPerkara || 0               // 12. saldo_perkara
-    ];
+  var response = {
+    status: 'success',
+    timestamp: new Date().toISOString(),
+    cases: cases,
+    biayaProses: biayaProses
+  };
 
-    if (targetRowIndex > 0) {
-      // Jika nomor_perkara sudah ada, perbarui (UPDATE) baris tersebut di sheet!
-      sheetData.getRange(targetRowIndex, 1, 1, rowValues.length).setValues([rowValues]);
-    } else {
-      // Jika belum ada, tambahkan baris baru (INSERT)
-      sheetData.appendRow(rowValues);
-    }
-  } else if (action === 'add_biaya_proses' || action === 'update_biaya_proses' || action === 'zero_out_case') {
-    var sheetLog = ss.getSheetByName('LogTransaksi') || ss.getActiveSheet();
-    var logValues = [
-      rec.tanggal || '',                 // 1. tanggal
-      rec.nomorPerkara || '',             // 2. nomor_perkara
-      rec.uraian || '',                  // 3. uraian
-      rec.penerimaan || 0,                // 4. penerimaan
-      rec.pengeluaran || 0,               // 5. pengeluaran
-      rec.kategori || 'ATK',              // 6. kategori
-      rec.keterangan || ''                // 7. keterangan
-    ];
+  return ContentService.createTextOutput(JSON.stringify(response))
+    .setMimeType(ContentService.MimeType.JSON);
+}
 
-    var targetRowIndex = -1;
-    var targetNomor = (rec.nomorPerkara || '').toString().trim().toLowerCase();
-    var targetUraian = (rec.uraian || '').toString().trim().toLowerCase();
+function doPost(e) {
+  setupSheets();
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var action = data.action;
+    var record = data.payload || data.record || data.rec || {};
+    var ss = getSpreadsheet();
 
-    if (targetNomor && targetNomor !== '-') {
-      var dataLog = sheetLog.getDataRange().getValues();
-      // 1. Cari pencocokan presisi: nomor_perkara DAN uraian
-      for (var j = 1; j < dataLog.length; j++) {
-        var rowNomor = (dataLog[j][1] || '').toString().trim().toLowerCase();
-        var rowUraian = (dataLog[j][2] || '').toString().trim().toLowerCase();
-        if (rowNomor === targetNomor && rowUraian === targetUraian && targetUraian !== '') {
-          targetRowIndex = j + 1;
+    if (action === 'add_case' || action === 'update_case') {
+      var sheet = ss.getSheetByName('DataPerkara');
+      var dataRows = sheet.getDataRange().getValues();
+      var rowIndex = -1;
+      
+      var targetId = String(record.id || '').trim();
+      var targetNomor = String(record.nomorPerkara || '').trim().toLowerCase();
+
+      for (var i = 1; i < dataRows.length; i++) {
+        var rowId = String(dataRows[i][0] || '').trim();
+        var rowNomor = String(dataRows[i][1] || '').trim().toLowerCase();
+        if ((targetId && rowId === targetId) || (targetNomor && rowNomor === targetNomor)) {
+          rowIndex = i + 1;
           break;
         }
       }
-      // 2. Jika aksi update_biaya_proses & uraian diubah, cari berdasarkan nomor_perkara
-      if (targetRowIndex === -1 && action === 'update_biaya_proses') {
-        for (var k = 1; k < dataLog.length; k++) {
-          var rNomor = (dataLog[k][1] || '').toString().trim().toLowerCase();
-          if (rNomor === targetNomor) {
-            targetRowIndex = k + 1;
+
+      var rowValues = [
+        record.id || ('case-' + Date.now()),
+        record.nomorPerkara || '',
+        record.namaPihak || '',
+        record.jenisPerkara || 'Cerai Gugat',
+        record.kategoriPerkara || 'Gugatan',
+        Number(record.panjarAwal) || 0,
+        Number(record.pengeluaran) || 0,
+        Number(record.saldoPerkara) || 0,
+        record.tanggalRegister || '',
+        record.catatan || '',
+        record.updatedAt || new Date().toISOString()
+      ];
+
+      if (rowIndex > 1) {
+        sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
+      } else {
+        sheet.appendRow(rowValues);
+      }
+    } else if (action === 'delete_case') {
+      var sheet = ss.getSheetByName('DataPerkara');
+      if (sheet) {
+        var dataRows = sheet.getDataRange().getValues();
+        for (var i = 1; i < dataRows.length; i++) {
+          if (String(dataRows[i][0]) === String(record.id) || String(dataRows[i][1]) === String(record.nomorPerkara)) {
+            sheet.deleteRow(i + 1);
+            break;
+          }
+        }
+      }
+    } else if (action === 'add_biaya_proses' || action === 'update_biaya_proses') {
+      var sheet = ss.getSheetByName('BukuBiayaProses') || ss.getSheetByName('LogTransaksi') || ss.getSheetByName('BukuBantu');
+      var rowValues = [
+        record.id || ('bp-' + Date.now()),
+        record.tanggal || '',
+        record.nomorPerkara || '-',
+        record.uraian || '',
+        Number(record.penerimaan) || 0,
+        Number(record.pengeluaran) || 0,
+        record.kategori || 'Proses',
+        record.keterangan || '',
+        record.createdAt || new Date().toISOString()
+      ];
+      
+      var dataRows = sheet.getDataRange().getValues();
+      var rowIndex = -1;
+      var targetId = String(record.id || '').trim();
+      if (action === 'update_biaya_proses' && targetId) {
+        for (var j = 1; j < dataRows.length; j++) {
+          if (String(dataRows[j][0]).trim() === targetId) {
+            rowIndex = j + 1;
+            break;
+          }
+        }
+      }
+
+      if (rowIndex > 1) {
+        sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
+      } else {
+        sheet.appendRow(rowValues);
+      }
+    } else if (action === 'delete_biaya_proses') {
+      var sheet = ss.getSheetByName('BukuBiayaProses') || ss.getSheetByName('LogTransaksi') || ss.getSheetByName('BukuBantu');
+      if (sheet) {
+        var dataRows = sheet.getDataRange().getValues();
+        for (var k = 1; k < dataRows.length; k++) {
+          if (String(dataRows[k][0]) === String(record.id)) {
+            sheet.deleteRow(k + 1);
             break;
           }
         }
       }
     }
 
-    if (targetRowIndex > 0) {
-      // Perbarui baris transaksi yang ada (UPDATE)
-      sheetLog.getRange(targetRowIndex, 1, 1, logValues.length).setValues([logValues]);
-    } else {
-      // Baris transaksi baru (INSERT)
-      sheetLog.appendRow(logValues);
-    }
+    return ContentService.createTextOutput(JSON.stringify({ status: 'success' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
   }
-  
-  return ContentService.createTextOutput(JSON.stringify({ status: 'success' }))
-    .setMimeType(ContentService.MimeType.JSON);
 }`;
 
   const handleCopyScript = () => {
