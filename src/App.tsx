@@ -74,99 +74,33 @@ export default function App() {
     setNotifications(loadedNotifs);
     setCacheMeta(StorageService.getCacheMeta());
 
-    const applyCasesUpdate = (incomingRecords: CaseRecord[]) => {
-      if (!Array.isArray(incomingRecords) || incomingRecords.length === 0) return;
-      setCases(prevCases => {
-        if (isForceSpreadsheetOverwrite) {
-          StorageService.saveCases(incomingRecords);
-          return incomingRecords;
-        }
-        const caseMap = new Map<string, CaseRecord>();
-        incomingRecords.forEach(inc => {
-          const key = inc.nomorPerkara && inc.nomorPerkara.trim() !== '' 
-            ? inc.nomorPerkara.trim().toLowerCase() 
-            : inc.id;
-          caseMap.set(key, inc);
-        });
-        prevCases.forEach(local => {
-          const key = local.nomorPerkara && local.nomorPerkara.trim() !== '' 
-            ? local.nomorPerkara.trim().toLowerCase() 
-            : local.id;
-          if (!caseMap.has(key)) {
-            caseMap.set(key, local);
-          }
-        });
-        const merged = Array.from(caseMap.values());
-        StorageService.saveCases(merged);
-        return merged;
-      });
-      setCacheMeta(StorageService.getCacheMeta());
-    };
-
-    const applyJurnalSkumUpdate = (incomingJurnal: JurnalBiayaSkumRecord[]) => {
-      if (!Array.isArray(incomingJurnal) || incomingJurnal.length === 0) return;
-      setJurnalSkumRecords(prevJurnal => {
-        if (isForceSpreadsheetOverwrite) {
-          StorageService.saveJurnalSkumRecords(incomingJurnal);
-          return incomingJurnal;
-        }
-        const recordMap = new Map<string, JurnalBiayaSkumRecord>();
-        incomingJurnal.forEach(inc => {
-          const key = `${inc.tanggal}_${inc.nomorPerkara}_${inc.uraian}`.toLowerCase();
-          recordMap.set(key, inc);
-        });
-        prevJurnal.forEach(local => {
-          const key = `${local.tanggal}_${local.nomorPerkara}_${local.uraian}`.toLowerCase();
-          if (!recordMap.has(key)) {
-            recordMap.set(key, local);
-          }
-        });
-        const merged = Array.from(recordMap.values());
-        StorageService.saveJurnalSkumRecords(merged);
-        return merged;
-      });
-    };
-
-    const applyBiayaProsesUpdate = (incomingLog: BiayaProsesRecord[]) => {
-      if (!Array.isArray(incomingLog) || incomingLog.length === 0) return;
-      setBiayaProsesRecords(prevRecords => {
-        if (isForceSpreadsheetOverwrite) {
-          StorageService.saveBiayaProsesRecords(incomingLog);
-          return incomingLog;
-        }
-        const recordMap = new Map<string, BiayaProsesRecord>();
-        incomingLog.forEach(inc => {
-          const key = `${inc.tanggal}_${inc.nomorPerkara}_${inc.uraian}`.toLowerCase();
-          recordMap.set(key, inc);
-        });
-        prevRecords.forEach(local => {
-          const key = `${local.tanggal}_${local.nomorPerkara}_${local.uraian}`.toLowerCase();
-          if (!recordMap.has(key)) {
-            recordMap.set(key, local);
-          }
-        });
-        const merged = Array.from(recordMap.values());
-        StorageService.saveBiayaProsesRecords(merged);
-        return merged;
-      });
-    };
-
     if (currentSyncSettings.googleSheetUrl && currentSyncSettings.googleSheetUrl.trim().length > 0) {
       try {
         if (currentSyncSettings.googleSheetUrl.includes('script.google.com')) {
           const appsScriptData = await SyncService.fetchFromAppsScript(currentSyncSettings.googleSheetUrl);
           if (appsScriptData) {
-            if (appsScriptData.cases.length > 0) applyCasesUpdate(appsScriptData.cases);
-            if (appsScriptData.jurnalSkum.length > 0) applyJurnalSkumUpdate(appsScriptData.jurnalSkum);
-            if (appsScriptData.biayaProses.length > 0) applyBiayaProsesUpdate(appsScriptData.biayaProses);
+            setCases(appsScriptData.cases);
+            StorageService.saveCases(appsScriptData.cases);
+
+            setBiayaProsesRecords(appsScriptData.biayaProses);
+            StorageService.saveBiayaProsesRecords(appsScriptData.biayaProses);
+
+            setJurnalSkumRecords(appsScriptData.jurnalSkum);
+            StorageService.saveJurnalSkumRecords(appsScriptData.jurnalSkum);
+
+            setCacheMeta(StorageService.getCacheMeta());
           }
         } else {
           const casesData = await SyncService.fetchGoogleSheetCsv(currentSyncSettings.googleSheetUrl);
-          applyCasesUpdate(casesData);
+          if (Array.isArray(casesData)) {
+            setCases(casesData);
+            StorageService.saveCases(casesData);
+          }
 
           const logData = await SyncService.fetchGoogleSheetBiayaProsesCsv(currentSyncSettings.googleSheetUrl);
-          if (logData && logData.length > 0) {
-            applyBiayaProsesUpdate(logData);
+          if (Array.isArray(logData)) {
+            setBiayaProsesRecords(logData);
+            StorageService.saveBiayaProsesRecords(logData);
           }
         }
       } catch (err) {
@@ -264,8 +198,15 @@ export default function App() {
     updateBiayaProsesState(updated);
 
     const webhook = getWebhookUrl(syncSettings);
-    if (webhook && target) {
-      SyncService.postToWebhook(webhook, 'delete_biaya_proses', target);
+    if (webhook) {
+      SyncService.postToWebhook(webhook, 'sync_all', {
+        cases: cases,
+        biayaProses: updated,
+        jurnalSkum: jurnalSkumRecords
+      });
+      if (target) {
+        SyncService.postToWebhook(webhook, 'delete_biaya_proses', target);
+      }
     }
 
     addNotification('Log Transaksi Dihapus', 'Satu log transaksi telah dihapus dari Buku Bantu Biaya Proses.', 'warning');
@@ -404,8 +345,15 @@ export default function App() {
     updateJurnalSkumState(updated);
 
     const webhook = getWebhookUrl(syncSettings);
-    if (webhook && target) {
-      SyncService.postToWebhook(webhook, 'delete_jurnal_skum', target);
+    if (webhook) {
+      SyncService.postToWebhook(webhook, 'sync_all', {
+        cases: cases,
+        biayaProses: biayaProsesRecords,
+        jurnalSkum: updated
+      });
+      if (target) {
+        SyncService.postToWebhook(webhook, 'delete_jurnal_skum', target);
+      }
     }
 
     addNotification('Log SKUM Dihapus', 'Satu baris log dihapus dari Jurnal Biaya SKUM.', 'warning');
@@ -592,8 +540,15 @@ export default function App() {
     updateCasesState(updated);
 
     const webhook = getWebhookUrl(syncSettings);
-    if (webhook && target) {
-      SyncService.postToWebhook(webhook, 'delete_case', target);
+    if (webhook) {
+      SyncService.postToWebhook(webhook, 'sync_all', {
+        cases: updated,
+        biayaProses: biayaProsesRecords,
+        jurnalSkum: jurnalSkumRecords
+      });
+      if (target) {
+        SyncService.postToWebhook(webhook, 'delete_case', target);
+      }
     }
 
     if (target) {
@@ -649,10 +604,11 @@ export default function App() {
   // Cache reset
   const handleClearCache = () => {
     StorageService.resetToDefault();
-    const defaultCases = StorageService.getCases();
-    setCases(defaultCases);
+    setCases([]);
+    setBiayaProsesRecords([]);
+    setJurnalSkumRecords([]);
     setCacheMeta(StorageService.getCacheMeta());
-    addNotification('Cache Direset', 'Basis data JSON lokal direset ke keadaan awal.', 'info');
+    addNotification('Cache Direset', 'Basis data JSON lokal direset ke keadaan kosong/awal.', 'info');
   };
 
   const handleForceReload = () => {
