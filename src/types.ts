@@ -81,11 +81,25 @@ export interface BiayaProsesRecord {
   id: string;
   tanggal: string;        // YYYY-MM-DD
   nomorPerkara: string;   // e.g. "1/Pdt.G/2026/PA.Pan"
-  uraian: string;         // e.g. "Pemotongan ATK Pendaftaran Perkara"
-  penerimaan: number;     // Rp Penerimaan
-  pengeluaran: number;    // Rp Pengeluaran
+  uraian: string;         // e.g. "Penerimaan Biaya Proses / ATK Pendaftaran"
+  penerimaan: number;     // Rp Penerimaan (Hak ATK Kantor)
+  pengeluaran: number;    // Rp Pengeluaran (Pembelian ATK Kantor/Biaya Proses)
   keterangan: string;     // KET
   kategori: 'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Lainnya';
   createdAt: string;
 }
+
+export interface JurnalBiayaSkumRecord {
+  id: string;
+  tanggal: string;        // YYYY-MM-DD
+  nomorPerkara: string;   // e.g. "1/Pdt.G/2026/PA.Pan"
+  uraian: string;         // e.g. "Penerimaan Panjar Awal" / "Biaya Panggilan I" / "Meterai"
+  penerimaan: number;     // Debet SKUM (Panjar Awal / Tambah Panjar)
+  pengeluaran: number;    // Kredit SKUM (Panggilan, Meterai, Redaksi, Pemberkasan ATK, Sisa Panjar)
+  keterangan: string;     // Catatan tambahan SKUM
+  kategori: 'Panjar' | 'Panggilan' | 'Meterai' | 'Redaksi' | 'ATK' | 'Proses' | 'Sisa Panjar' | 'Lainnya';
+  createdAt: string;
+}
+
+export type ActiveTabType = 'jurnal-skum' | 'buku-biaya-proses' | 'table';
 

@@ -1,4 +1,4 @@
-import { CaseRecord, NotificationItem, SyncSettings, CacheMetadata, BiayaProsesRecord } from '../types';
+import { CaseRecord, NotificationItem, SyncSettings, CacheMetadata, BiayaProsesRecord, JurnalBiayaSkumRecord } from '../types';
 import { INITIAL_CASE_RECORDS } from '../data/initialData';
 
 const STORAGE_KEYS = {
@@ -7,18 +7,19 @@ const STORAGE_KEYS = {
   SYNC_SETTINGS: 'pa_perkara_sync_settings_v1',
   CACHE_META: 'pa_perkara_cache_meta_v2',
   BIAYA_PROSES: 'pa_perkara_biaya_proses_v2',
+  JURNAL_SKUM: 'pa_perkara_jurnal_skum_v1',
 };
 
 export const INITIAL_BIAYA_PROSES_RECORDS: BiayaProsesRecord[] = [];
-
-
+export const INITIAL_JURNAL_SKUM_RECORDS: JurnalBiayaSkumRecord[] = [];
 
 export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
-  autoSyncEnabled: true,
-  googleSheetUrl: 'https://script.google.com/macros/s/AKfycbx_N2FEFTTruxZzyR5BzVRted8jpgE-qTSABwivhx0_s7v8aDR1VIpIsxhlABbY6jQs/exec',
+  autoSyncEnabled: false,
+  googleSheetUrl: '',
   syncIntervalMinutes: 15,
   syncStatus: 'idle',
 };
+
 
 export class StorageService {
   private static cacheHitCount = 0;
@@ -139,8 +140,31 @@ export class StorageService {
     localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
     localStorage.removeItem(STORAGE_KEYS.CACHE_META);
     localStorage.removeItem(STORAGE_KEYS.BIAYA_PROSES);
+    localStorage.removeItem(STORAGE_KEYS.JURNAL_SKUM);
     this.saveCases(INITIAL_CASE_RECORDS);
     this.saveBiayaProsesRecords(INITIAL_BIAYA_PROSES_RECORDS);
+    this.saveJurnalSkumRecords(INITIAL_JURNAL_SKUM_RECORDS);
+  }
+
+  static getJurnalSkumRecords(): JurnalBiayaSkumRecord[] {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.JURNAL_SKUM);
+      if (raw) {
+        return JSON.parse(raw);
+      }
+    } catch (e) {
+      console.error('Error loading jurnal skum records:', e);
+    }
+    this.saveJurnalSkumRecords(INITIAL_JURNAL_SKUM_RECORDS);
+    return INITIAL_JURNAL_SKUM_RECORDS;
+  }
+
+  static saveJurnalSkumRecords(records: JurnalBiayaSkumRecord[]): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.JURNAL_SKUM, JSON.stringify(records));
+    } catch (e) {
+      console.error('Error saving jurnal skum records:', e);
+    }
   }
 
   static getBiayaProsesRecords(): BiayaProsesRecord[] {

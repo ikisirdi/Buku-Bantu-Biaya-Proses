@@ -411,32 +411,6 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
             </button>
           )}
 
-          {/* Spreadsheet Structure Guide Button */}
-          <button
-            id="spreadsheet-guide-btn"
-            onClick={() => setIsSpreadsheetGuideOpen(true)}
-            className={`flex items-center space-x-1.5 px-3 py-2 border rounded-xl text-xs font-bold transition-all ${
-              isLight 
-                ? 'bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border-cyan-200' 
-                : 'bg-slate-800 hover:bg-slate-700 text-cyan-400 border-cyan-800/60'
-            }`}
-            title="Lihat struktur kolom CSV/Spreadsheet yang direkomendasikan"
-          >
-            <Table className="w-4 h-4 text-cyan-600" />
-            <span className="hidden sm:inline">Struktur Spreadsheet</span>
-          </button>
-
-          {/* Deduct ATK Button */}
-          <button
-            id="deduct-atk-btn"
-            onClick={() => setIsAtkModalOpen(true)}
-            className="flex items-center space-x-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
-            title="Potong biaya ATK dari panjar perkara masuk"
-          >
-            <Scissors className="w-4 h-4 text-emerald-100" />
-            <span>Potong ATK Perkara</span>
-          </button>
-
           {/* Add Manual Transaction */}
           <button
             id="add-biaya-proses-btn"
@@ -470,17 +444,6 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
           >
             <Printer className="w-4 h-4" />
             <span>Cetak Rekap Bulanan</span>
-          </button>
-
-          {/* LIPA.7a Official Report Button */}
-          <button
-            id="open-lipa7a-btn"
-            onClick={() => setIsLipa7aOpen(true)}
-            className="flex items-center space-x-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 border border-emerald-500/40"
-            title="Cetak Laporan Keuangan Perkara (LIPA.7a) Format Resmi"
-          >
-            <FileText className="w-4 h-4 text-emerald-200" />
-            <span>Cetak LIPA.7a Resmi</span>
           </button>
         </div>
       </div>

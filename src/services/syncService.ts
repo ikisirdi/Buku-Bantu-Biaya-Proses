@@ -1,6 +1,7 @@
-import { CaseRecord, BiayaProsesRecord, JenisPerkara, KategoriPerkara, StatusPerkara } from '../types';
+import { CaseRecord, BiayaProsesRecord, JurnalBiayaSkumRecord, JenisPerkara, KategoriPerkara, StatusPerkara } from '../types';
 
 export class SyncService {
+
   /**
    * Parse CSV content into CaseRecord objects.
    * Flexibly matches Indonesian header titles.
@@ -204,7 +205,11 @@ export class SyncService {
   /**
    * Fetch structured JSON directly from Google Apps Script Web App (doGet)
    */
-  static async fetchFromAppsScript(url: string): Promise<{ cases: CaseRecord[]; biayaProses: BiayaProsesRecord[] } | null> {
+  static async fetchFromAppsScript(url: string): Promise<{ 
+    cases: CaseRecord[]; 
+    jurnalSkum: JurnalBiayaSkumRecord[];
+    biayaProses: BiayaProsesRecord[];
+  } | null> {
     const targetUrl = url.trim();
     if (!targetUrl || !targetUrl.includes('script.google.com')) return null;
 
@@ -212,9 +217,10 @@ export class SyncService {
       const response = await fetch(targetUrl);
       if (!response.ok) return null;
       const json = await response.json();
-      if (json && (json.status === 'success' || Array.isArray(json.cases) || Array.isArray(json.biayaProses))) {
+      if (json && (json.status === 'success' || Array.isArray(json.cases) || Array.isArray(json.jurnalSkum) || Array.isArray(json.biayaProses))) {
         return {
           cases: Array.isArray(json.cases) ? json.cases : [],
+          jurnalSkum: Array.isArray(json.jurnalSkum) ? json.jurnalSkum : [],
           biayaProses: Array.isArray(json.biayaProses) ? json.biayaProses : []
         };
       }

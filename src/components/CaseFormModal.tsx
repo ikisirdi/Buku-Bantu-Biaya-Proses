@@ -30,9 +30,9 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
   const [tanggalPutus, setTanggalPutus] = useState<string>('');
   const [tingkatPerkara, setTingkatPerkara] = useState<TingkatPerkara>('Tingkat Pertama');
   const [status, setStatus] = useState<StatusPerkara>('Diperiksa');
-  const [hakimKetua, setHakimKetua] = useState<string>('Drs. H. Ahmad Fauzi, M.H.');
-  const [panitera, setPanitera] = useState<string>('Siti Rahmah, S.H.');
-  const [ruangSidang, setRuangSidang] = useState<string>('Ruang Utama Cakra');
+  const [hakimKetua, setHakimKetua] = useState<string>('');
+  const [panitera, setPanitera] = useState<string>('');
+  const [ruangSidang, setRuangSidang] = useState<string>('');
   const [catatan, setCatatan] = useState<string>('');
 
   useEffect(() => {
@@ -49,9 +49,9 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
       setTanggalPutus(recordToEdit.tanggalPutus || '');
       setTingkatPerkara(recordToEdit.tingkatPerkara || 'Tingkat Pertama');
       setStatus(recordToEdit.status);
-      setHakimKetua(recordToEdit.hakimKetua || 'Drs. H. Ahmad Fauzi, M.H.');
-      setPanitera(recordToEdit.panitera || 'Siti Rahmah, S.H.');
-      setRuangSidang(recordToEdit.ruangSidang || 'Ruang Utama Cakra');
+      setHakimKetua(recordToEdit.hakimKetua || '');
+      setPanitera(recordToEdit.panitera || '');
+      setRuangSidang(recordToEdit.ruangSidang || '');
       setCatatan(recordToEdit.catatan || '');
     } else {
       // Auto-generate new case number with 2-digit padding format (e.g. 01/Pdt.G/2026/PA.Pan)
@@ -70,6 +70,9 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
       setTanggalPutus('');
       setTingkatPerkara('Tingkat Pertama');
       setStatus('Diperiksa');
+      setHakimKetua('');
+      setPanitera('');
+      setRuangSidang('');
       setCatatan('');
     }
   }, [recordToEdit, isOpen, totalCasesCount]);

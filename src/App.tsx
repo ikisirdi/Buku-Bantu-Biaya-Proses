@@ -5,13 +5,15 @@ import {
   NotificationItem, 
   SyncSettings, 
   CacheMetadata,
-  BiayaProsesRecord
+  BiayaProsesRecord,
+  JurnalBiayaSkumRecord
 } from './types';
 import { StorageService } from './services/storage';
 import { SyncService } from './services/syncService';
 import { Navbar } from './components/Navbar';
 import { CaseTable } from './components/CaseTable';
 import { BukuBiayaProses } from './components/BukuBiayaProses';
+import { JurnalBiayaSkumView } from './components/JurnalBiayaSkumView';
 import { CaseFormModal } from './components/CaseFormModal';
 import { SpreadsheetSyncModal } from './components/SpreadsheetSyncModal';
 import { NotificationCenter } from './components/NotificationCenter';
@@ -21,12 +23,13 @@ import { CaseDetailModal } from './components/CaseDetailModal';
 import { JurnalBiayaModal } from './components/JurnalBiayaModal';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'table' | 'buku-biaya-proses'>('buku-biaya-proses');
+  const [activeTab, setActiveTab] = useState<'table' | 'buku-biaya-proses' | 'jurnal-skum'>('buku-biaya-proses');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('pa_perkara_theme_v1') as 'light' | 'dark') || 'light';
   });
   const [cases, setCases] = useState<CaseRecord[]>([]);
   const [biayaProsesRecords, setBiayaProsesRecords] = useState<BiayaProsesRecord[]>([]);
+  const [jurnalSkumRecords, setJurnalSkumRecords] = useState<JurnalBiayaSkumRecord[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [syncSettings, setSyncSettings] = useState<SyncSettings>(StorageService.getSyncSettings());
   const [cacheMeta, setCacheMeta] = useState<CacheMetadata>(StorageService.getCacheMeta());
@@ -61,11 +64,13 @@ export default function App() {
   const loadDataFromSource = useCallback(async (isForceSpreadsheetOverwrite = false) => {
     const loadedCases = StorageService.getCases();
     const loadedBiayaProses = StorageService.getBiayaProsesRecords();
+    const loadedJurnalSkum = StorageService.getJurnalSkumRecords();
     const loadedNotifs = StorageService.getNotifications();
     const currentSyncSettings = StorageService.getSyncSettings();
 
     setCases(loadedCases);
     setBiayaProsesRecords(loadedBiayaProses);
+    setJurnalSkumRecords(loadedJurnalSkum);
     setNotifications(loadedNotifs);
     setCacheMeta(StorageService.getCacheMeta());
 
@@ -98,6 +103,30 @@ export default function App() {
       setCacheMeta(StorageService.getCacheMeta());
     };
 
+    const applyJurnalSkumUpdate = (incomingJurnal: JurnalBiayaSkumRecord[]) => {
+      if (!Array.isArray(incomingJurnal) || incomingJurnal.length === 0) return;
+      setJurnalSkumRecords(prevJurnal => {
+        if (isForceSpreadsheetOverwrite) {
+          StorageService.saveJurnalSkumRecords(incomingJurnal);
+          return incomingJurnal;
+        }
+        const recordMap = new Map<string, JurnalBiayaSkumRecord>();
+        incomingJurnal.forEach(inc => {
+          const key = `${inc.tanggal}_${inc.nomorPerkara}_${inc.uraian}`.toLowerCase();
+          recordMap.set(key, inc);
+        });
+        prevJurnal.forEach(local => {
+          const key = `${local.tanggal}_${local.nomorPerkara}_${local.uraian}`.toLowerCase();
+          if (!recordMap.has(key)) {
+            recordMap.set(key, local);
+          }
+        });
+        const merged = Array.from(recordMap.values());
+        StorageService.saveJurnalSkumRecords(merged);
+        return merged;
+      });
+    };
+
     const applyBiayaProsesUpdate = (incomingLog: BiayaProsesRecord[]) => {
       if (!Array.isArray(incomingLog) || incomingLog.length === 0) return;
       setBiayaProsesRecords(prevRecords => {
@@ -124,26 +153,25 @@ export default function App() {
 
     if (currentSyncSettings.googleSheetUrl && currentSyncSettings.googleSheetUrl.trim().length > 0) {
       try {
-        const casesData = await SyncService.fetchGoogleSheetCsv(currentSyncSettings.googleSheetUrl);
-        applyCasesUpdate(casesData);
+        if (currentSyncSettings.googleSheetUrl.includes('script.google.com')) {
+          const appsScriptData = await SyncService.fetchFromAppsScript(currentSyncSettings.googleSheetUrl);
+          if (appsScriptData) {
+            if (appsScriptData.cases.length > 0) applyCasesUpdate(appsScriptData.cases);
+            if (appsScriptData.jurnalSkum.length > 0) applyJurnalSkumUpdate(appsScriptData.jurnalSkum);
+            if (appsScriptData.biayaProses.length > 0) applyBiayaProsesUpdate(appsScriptData.biayaProses);
+          }
+        } else {
+          const casesData = await SyncService.fetchGoogleSheetCsv(currentSyncSettings.googleSheetUrl);
+          applyCasesUpdate(casesData);
 
-        const logData = await SyncService.fetchGoogleSheetBiayaProsesCsv(currentSyncSettings.googleSheetUrl);
-        if (logData && logData.length > 0) {
-          applyBiayaProsesUpdate(logData);
+          const logData = await SyncService.fetchGoogleSheetBiayaProsesCsv(currentSyncSettings.googleSheetUrl);
+          if (logData && logData.length > 0) {
+            applyBiayaProsesUpdate(logData);
+          }
         }
       } catch (err) {
         console.warn('Gagal auto-sync Google Sheet:', err);
       }
-    } else {
-      fetch('./data_perkara.json')
-        .then(res => res.ok ? res.json() : null)
-        .then(json => json && applyCasesUpdate(json))
-        .catch(() => {});
-
-      fetch('./data_biaya_proses.json')
-        .then(res => res.ok ? res.json() : null)
-        .then(json => json && applyBiayaProsesUpdate(json))
-        .catch(() => {});
     }
   }, []);
 
@@ -161,6 +189,11 @@ export default function App() {
   const updateBiayaProsesState = useCallback((newRecords: BiayaProsesRecord[]) => {
     setBiayaProsesRecords(newRecords);
     StorageService.saveBiayaProsesRecords(newRecords);
+  }, []);
+
+  const updateJurnalSkumState = useCallback((newRecords: JurnalBiayaSkumRecord[]) => {
+    setJurnalSkumRecords(newRecords);
+    StorageService.saveJurnalSkumRecords(newRecords);
   }, []);
 
   const addNotification = useCallback((title: string, message: string, type: 'info' | 'success' | 'warning' | 'alert', nomorPerkara?: string) => {
@@ -342,31 +375,89 @@ export default function App() {
     );
   };
 
+  // Handlers for Jurnal Biaya SKUM
+  const handleAddJurnalSkumRecord = (record: Omit<JurnalBiayaSkumRecord, 'id' | 'createdAt'>) => {
+    const newRecord: JurnalBiayaSkumRecord = {
+      ...record,
+      id: `skum-${Date.now()}`,
+      createdAt: new Date().toISOString()
+    };
+    const updated = [newRecord, ...jurnalSkumRecords];
+    updateJurnalSkumState(updated);
+
+    const webhook = getWebhookUrl(syncSettings);
+    if (webhook) {
+      SyncService.postToWebhook(webhook, 'add_jurnal_skum', newRecord);
+    }
+
+    addNotification(
+      'Log Jurnal SKUM Dicatat',
+      `Berhasil mencatat log transaksi SKUM perkara ${newRecord.nomorPerkara}: ${newRecord.uraian}`,
+      'success',
+      newRecord.nomorPerkara
+    );
+  };
+
+  const handleDeleteJurnalSkumRecord = (id: string) => {
+    const target = jurnalSkumRecords.find(r => r.id === id);
+    const updated = jurnalSkumRecords.filter(r => r.id !== id);
+    updateJurnalSkumState(updated);
+
+    const webhook = getWebhookUrl(syncSettings);
+    if (webhook && target) {
+      SyncService.postToWebhook(webhook, 'delete_jurnal_skum', target);
+    }
+
+    addNotification('Log SKUM Dihapus', 'Satu baris log dihapus dari Jurnal Biaya SKUM.', 'warning');
+  };
+
   // Handle Jurnal SKUM execution per case
   const handleExecuteJurnal = (
     caseId: string,
     nomorPerkara: string,
-    journalItems: { uraian: string; amount: number; kategori: 'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Lainnya' }[],
+    journalItems: { uraian: string; amount: number; kategori: 'Panjar' | 'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Sisa Panjar' | 'Lainnya' }[],
     tanggalJurnal?: string
   ) => {
     const today = tanggalJurnal || new Date().toISOString().split('T')[0];
-    const newRecords: BiayaProsesRecord[] = journalItems.map((item, idx) => ({
-      id: `jurnal-${Date.now()}-${idx}`,
+
+    // 1. Generate JurnalBiayaSkumRecord entries (Logged in JurnalBiayaSKUM sheet)
+    const newSkumRecords: JurnalBiayaSkumRecord[] = journalItems.map((item, idx) => ({
+      id: `skum-${Date.now()}-${idx}`,
       tanggal: today,
       nomorPerkara,
       uraian: item.uraian,
-      penerimaan: item.kategori === 'ATK' ? item.amount : 0,
-      pengeluaran: item.kategori !== 'ATK' ? item.amount : 0,
-      keterangan: 'Pencatatan Jurnal SKUM Biaya',
+      penerimaan: item.kategori === 'Panjar' ? item.amount : 0,
+      pengeluaran: item.kategori !== 'Panjar' ? item.amount : 0,
       kategori: item.kategori,
+      keterangan: 'Pencatatan Jurnal SKUM Perkara',
+      createdAt: new Date().toISOString()
+    }));
+
+    // 2. Generate BiayaProsesRecord ONLY for ATK items so Buku Bantu Biaya Proses isn't polluted
+    const atkItems = journalItems.filter(item => item.kategori === 'ATK');
+    const newBiayaProsesRecords: BiayaProsesRecord[] = atkItems.map((item, idx) => ({
+      id: `bp-atk-${Date.now()}-${idx}`,
+      tanggal: today,
+      nomorPerkara,
+      uraian: item.uraian,
+      penerimaan: item.amount,
+      pengeluaran: 0,
+      keterangan: 'Pemotongan Panjar ATK Perkara (Buku Bantu)',
+      kategori: 'ATK',
       createdAt: new Date().toISOString()
     }));
 
     const totalDeduction = journalItems.reduce((acc, item) => acc + item.amount, 0);
 
-    // Update Biaya Proses Records
-    const updatedRecords = [...biayaProsesRecords, ...newRecords];
-    updateBiayaProsesState(updatedRecords);
+    // Save Jurnal SKUM Records
+    const updatedSkum = [...newSkumRecords, ...jurnalSkumRecords];
+    updateJurnalSkumState(updatedSkum);
+
+    // Save Biaya Proses Records (if ATK present)
+    if (newBiayaProsesRecords.length > 0) {
+      const updatedBp = [...biayaProsesRecords, ...newBiayaProsesRecords];
+      updateBiayaProsesState(updatedBp);
+    }
 
     // Deduct case balance
     let targetUpdatedCase: CaseRecord | undefined;
@@ -388,7 +479,10 @@ export default function App() {
     // Webhook push
     const webhook = getWebhookUrl(syncSettings);
     if (webhook) {
-      newRecords.forEach(rec => {
+      newSkumRecords.forEach(rec => {
+        SyncService.postToWebhook(webhook, 'add_jurnal_skum', rec);
+      });
+      newBiayaProsesRecords.forEach(rec => {
         SyncService.postToWebhook(webhook, 'add_biaya_proses', rec);
       });
       if (targetUpdatedCase) {
@@ -397,8 +491,8 @@ export default function App() {
     }
 
     addNotification(
-      'Eksekusi Jurnal Biaya SKUM',
-      `Jurnal biaya SKUM untuk perkara ${nomorPerkara} berhasil dicatat. Total potongan panjar: Rp ${totalDeduction.toLocaleString('id-ID')}. Potongan ATK otomatis masuk ke Buku Bantu Biaya Proses.`,
+      'Eksekusi Jurnal SKUM',
+      `Jurnal biaya SKUM perkara ${nomorPerkara} berhasil dicatatkan ke Buku Jurnal SKUM. Total transaksi: Rp ${totalDeduction.toLocaleString('id-ID')}.`,
       'success',
       nomorPerkara
     );
@@ -599,7 +693,19 @@ export default function App() {
       <main className="flex-1 max-w-[100%] xl:max-w-[1700px] 2xl:max-w-[1920px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-6">
         
         {/* Dynamic View rendering */}
-        {activeTab === 'buku-biaya-proses' ? (
+        {activeTab === 'jurnal-skum' ? (
+          <JurnalBiayaSkumView
+            records={jurnalSkumRecords}
+            cases={cases}
+            onAddRecord={handleAddJurnalSkumRecord}
+            onDeleteRecord={handleDeleteJurnalSkumRecord}
+            onOpenJurnalModal={() => {
+              setJurnalSelectedCase(cases[0] || null);
+              setIsJurnalModalOpen(true);
+            }}
+            theme={theme}
+          />
+        ) : activeTab === 'buku-biaya-proses' ? (
           <BukuBiayaProses
             records={biayaProsesRecords}
             cases={cases}

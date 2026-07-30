@@ -11,7 +11,7 @@ interface JurnalBiayaModalProps {
   onExecuteJurnal: (
     caseId: string, 
     nomorPerkara: string, 
-    journalItems: { uraian: string; amount: number; kategori: 'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Lainnya' }[],
+    journalItems: { uraian: string; amount: number; kategori: 'Panjar' | 'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Sisa Panjar' | 'Lainnya' }[],
     tanggalJurnal: string
   ) => void;
   theme?: 'light' | 'dark';

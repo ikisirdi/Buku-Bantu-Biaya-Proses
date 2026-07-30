@@ -42,7 +42,7 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
 
   const appScriptCode = `/**
  * ==============================================================================
- * GOOGLE APPS SCRIPT (kode.gs) - SISTEM KEUANGAN PERKARA & BIAYA PROSES PA BANJARBARU
+ * GOOGLE APPS SCRIPT (kode.gs) - SISTEM KEUANGAN PERKARA & BIAYA PROSES PA
  * Paste kode ini di: Extensions > Apps Script pada Spreadsheet Anda.
  * Kemudian klik Deploy > New deployment > Select type: Web App
  * - Execute as: Me
@@ -56,6 +56,8 @@ function getSpreadsheet() {
 
 function setupSheets() {
   var ss = getSpreadsheet();
+
+  // 1. Sheet DataPerkara (Register Perkara & Saldo Panjar)
   var sheetPerkara = ss.getSheetByName('DataPerkara');
   if (!sheetPerkara) {
     sheetPerkara = ss.insertSheet('DataPerkara');
@@ -66,6 +68,18 @@ function setupSheets() {
     sheetPerkara.getRange('A1:K1').setFontWeight('bold').setBackground('#d1fae5');
   }
 
+  // 2. Sheet JurnalBiayaSKUM (Log Transaksi SKUM Perkara)
+  var sheetJurnal = ss.getSheetByName('JurnalBiayaSKUM') || ss.getSheetByName('JurnalSKUM');
+  if (!sheetJurnal) {
+    sheetJurnal = ss.insertSheet('JurnalBiayaSKUM');
+    sheetJurnal.appendRow([
+      'ID', 'Tanggal', 'Nomor Perkara', 'Uraian', 'Penerimaan / Debet',
+      'Pengeluaran / Kredit', 'Kategori', 'Keterangan', 'Created At'
+    ]);
+    sheetJurnal.getRange('A1:I1').setFontWeight('bold').setBackground('#bae6fd');
+  }
+
+  // 3. Sheet BukuBiayaProses (Buku Bantu Biaya Proses / ATK Kantor)
   var sheetBiaya = ss.getSheetByName('BukuBiayaProses') || ss.getSheetByName('LogTransaksi');
   if (!sheetBiaya) {
     sheetBiaya = ss.insertSheet('BukuBiayaProses');
@@ -81,8 +95,9 @@ function doGet(e) {
   setupSheets();
   var ss = getSpreadsheet();
   
+  // Fetch DataPerkara
   var sheetPerkara = ss.getSheetByName('DataPerkara');
-  var dataPerkaraRows = sheetPerkara.getDataRange().getValues();
+  var dataPerkaraRows = sheetPerkara ? sheetPerkara.getDataRange().getValues() : [];
   var cases = [];
   for (var i = 1; i < dataPerkaraRows.length; i++) {
     var r = dataPerkaraRows[i];
@@ -103,12 +118,36 @@ function doGet(e) {
     }
   }
 
+  // Fetch JurnalBiayaSKUM
+  var sheetJurnal = ss.getSheetByName('JurnalBiayaSKUM') || ss.getSheetByName('JurnalSKUM');
+  var jurnalSkum = [];
+  if (sheetJurnal) {
+    var dataJurnalRows = sheetJurnal.getDataRange().getValues();
+    for (var k = 1; k < dataJurnalRows.length; k++) {
+      var j = dataJurnalRows[k];
+      if (j[0] && String(j[0]).trim() !== '') {
+        jurnalSkum.push({
+          id: String(j[0]),
+          tanggal: j[1] ? Utilities.formatDate(new Date(j[1]), Session.getScriptTimeZone(), 'yyyy-MM-dd') : '',
+          nomorPerkara: String(j[2] || '-'),
+          uraian: String(j[3] || ''),
+          penerimaan: Number(j[4]) || 0,
+          pengeluaran: Number(j[5]) || 0,
+          kategori: String(j[6] || 'Panggilan'),
+          keterangan: String(j[7] || ''),
+          createdAt: String(j[8] || '')
+        });
+      }
+    }
+  }
+
+  // Fetch BukuBiayaProses
   var sheetBiaya = ss.getSheetByName('BukuBiayaProses') || ss.getSheetByName('LogTransaksi') || ss.getSheetByName('BukuBantu');
   var biayaProses = [];
   if (sheetBiaya) {
     var dataBiayaRows = sheetBiaya.getDataRange().getValues();
-    for (var j = 1; j < dataBiayaRows.length; j++) {
-      var b = dataBiayaRows[j];
+    for (var m = 1; m < dataBiayaRows.length; m++) {
+      var b = dataBiayaRows[m];
       if (b[0] && String(b[0]).trim() !== '') {
         biayaProses.push({
           id: String(b[0]),
@@ -129,6 +168,7 @@ function doGet(e) {
     status: 'success',
     timestamp: new Date().toISOString(),
     cases: cases,
+    jurnalSkum: jurnalSkum,
     biayaProses: biayaProses
   };
 
@@ -191,6 +231,48 @@ function doPost(e) {
           }
         }
       }
+    } else if (action === 'add_jurnal_skum' || action === 'update_jurnal_skum') {
+      var sheet = ss.getSheetByName('JurnalBiayaSKUM') || ss.getSheetByName('JurnalSKUM');
+      var rowValues = [
+        record.id || ('skum-' + Date.now()),
+        record.tanggal || '',
+        record.nomorPerkara || '-',
+        record.uraian || '',
+        Number(record.penerimaan) || 0,
+        Number(record.pengeluaran) || 0,
+        record.kategori || 'Panggilan',
+        record.keterangan || '',
+        record.createdAt || new Date().toISOString()
+      ];
+
+      var dataRows = sheet.getDataRange().getValues();
+      var rowIndex = -1;
+      var targetId = String(record.id || '').trim();
+      if (action === 'update_jurnal_skum' && targetId) {
+        for (var j = 1; j < dataRows.length; j++) {
+          if (String(dataRows[j][0]).trim() === targetId) {
+            rowIndex = j + 1;
+            break;
+          }
+        }
+      }
+
+      if (rowIndex > 1) {
+        sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
+      } else {
+        sheet.appendRow(rowValues);
+      }
+    } else if (action === 'delete_jurnal_skum') {
+      var sheet = ss.getSheetByName('JurnalBiayaSKUM') || ss.getSheetByName('JurnalSKUM');
+      if (sheet) {
+        var dataRows = sheet.getDataRange().getValues();
+        for (var k = 1; k < dataRows.length; k++) {
+          if (String(dataRows[k][0]) === String(record.id)) {
+            sheet.deleteRow(k + 1);
+            break;
+          }
+        }
+      }
     } else if (action === 'add_biaya_proses' || action === 'update_biaya_proses') {
       var sheet = ss.getSheetByName('BukuBiayaProses') || ss.getSheetByName('LogTransaksi') || ss.getSheetByName('BukuBantu');
       var rowValues = [
@@ -226,9 +308,9 @@ function doPost(e) {
       var sheet = ss.getSheetByName('BukuBiayaProses') || ss.getSheetByName('LogTransaksi') || ss.getSheetByName('BukuBantu');
       if (sheet) {
         var dataRows = sheet.getDataRange().getValues();
-        for (var k = 1; k < dataRows.length; k++) {
-          if (String(dataRows[k][0]) === String(record.id)) {
-            sheet.deleteRow(k + 1);
+        for (var m = 1; m < dataRows.length; m++) {
+          if (String(dataRows[m][0]) === String(record.id)) {
+            sheet.deleteRow(m + 1);
             break;
           }
         }
@@ -242,6 +324,7 @@ function doPost(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 }`;
+
 
   const handleCopyScript = () => {
     navigator.clipboard.writeText(appScriptCode);
