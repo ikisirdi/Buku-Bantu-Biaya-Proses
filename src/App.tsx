@@ -339,6 +339,28 @@ export default function App() {
     );
   };
 
+  const handleUpdateJurnalSkumRecord = (updatedRecord: JurnalBiayaSkumRecord) => {
+    const updated = jurnalSkumRecords.map(r => r.id === updatedRecord.id ? updatedRecord : r);
+    updateJurnalSkumState(updated);
+
+    const webhook = getWebhookUrl(syncSettings);
+    if (webhook) {
+      SyncService.postToWebhook(webhook, 'update_jurnal_skum', updatedRecord);
+      SyncService.postToWebhook(webhook, 'sync_all', {
+        cases: cases,
+        biayaProses: biayaProsesRecords,
+        jurnalSkum: updated
+      });
+    }
+
+    addNotification(
+      'Log SKUM Diperbarui',
+      `Berhasil memperbarui data transaksi SKUM perkara ${updatedRecord.nomorPerkara}`,
+      'info',
+      updatedRecord.nomorPerkara
+    );
+  };
+
   const handleDeleteJurnalSkumRecord = (id: string) => {
     const target = jurnalSkumRecords.find(r => r.id === id);
     const updated = jurnalSkumRecords.filter(r => r.id !== id);
@@ -654,6 +676,7 @@ export default function App() {
             records={jurnalSkumRecords}
             cases={cases}
             onAddRecord={handleAddJurnalSkumRecord}
+            onUpdateRecord={handleUpdateJurnalSkumRecord}
             onDeleteRecord={handleDeleteJurnalSkumRecord}
             onOpenJurnalModal={() => {
               setJurnalSelectedCase(cases[0] || null);

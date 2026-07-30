@@ -181,8 +181,24 @@ function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
     var action = data.action;
-    var record = data.payload || data.record || data.rec || {};
+    var payload = data.payload || data.record || data.rec || {};
     var ss = getSpreadsheet();
+
+    // 1. SINKRONISASI TOTAL / BULK (sync_all / save_all)
+    if (action === 'sync_all' || action === 'save_all') {
+      if (payload.cases && Array.isArray(payload.cases)) {
+        writeCasesToSheet(ss, payload.cases);
+      }
+      if (payload.biayaProses && Array.isArray(payload.biayaProses)) {
+        writeBiayaProsesToSheet(ss, payload.biayaProses);
+      }
+      if (payload.jurnalSkum && Array.isArray(payload.jurnalSkum)) {
+        writeJurnalSkumToSheet(ss, payload.jurnalSkum);
+      }
+      return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Sync all complete' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var record = payload;
 
     if (action === 'add_case' || action === 'update_case') {
       var sheet = ss.getSheetByName('DataPerkara');
@@ -323,6 +339,57 @@ function doPost(e) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
   }
+}
+
+function writeCasesToSheet(ss, cases) {
+  var sheet = ss.getSheetByName('DataPerkara');
+  if (!sheet) return;
+  sheet.clearContents();
+  sheet.appendRow([
+    'ID', 'Nomor Perkara', 'Nama Pihak', 'Jenis Perkara', 'Kategori Perkara',
+    'Panjar Awal', 'Pengeluaran', 'Saldo Perkara', 'Tanggal Register', 'Catatan', 'Updated At'
+  ]);
+  sheet.getRange('A1:K1').setFontWeight('bold').setBackground('#d1fae5');
+  cases.forEach(function(c) {
+    sheet.appendRow([
+      c.id, c.nomorPerkara, c.namaPihak, c.jenisPerkara, c.kategoriPerkara,
+      c.panjarAwal, c.pengeluaran, c.saldoPerkara, c.tanggalRegister, c.catatan, c.updatedAt
+    ]);
+  });
+}
+
+function writeBiayaProsesToSheet(ss, records) {
+  var sheet = ss.getSheetByName('BukuBiayaProses') || ss.getSheetByName('LogTransaksi');
+  if (!sheet) return;
+  sheet.clearContents();
+  sheet.appendRow([
+    'ID', 'Tanggal', 'Nomor Perkara', 'Uraian', 'Penerimaan',
+    'Pengeluaran', 'Kategori', 'Keterangan', 'Created At'
+  ]);
+  sheet.getRange('A1:I1').setFontWeight('bold').setBackground('#fef3c7');
+  records.forEach(function(r) {
+    sheet.appendRow([
+      r.id, r.tanggal, r.nomorPerkara, r.uraian, r.penerimaan,
+      r.pengeluaran, r.kategori, r.keterangan, r.createdAt
+    ]);
+  });
+}
+
+function writeJurnalSkumToSheet(ss, records) {
+  var sheet = ss.getSheetByName('JurnalBiayaSKUM') || ss.getSheetByName('JurnalSKUM');
+  if (!sheet) return;
+  sheet.clearContents();
+  sheet.appendRow([
+    'ID', 'Tanggal', 'Nomor Perkara', 'Uraian', 'Penerimaan / Debet',
+    'Pengeluaran / Kredit', 'Kategori', 'Keterangan', 'Created At'
+  ]);
+  sheet.getRange('A1:I1').setFontWeight('bold').setBackground('#bae6fd');
+  records.forEach(function(r) {
+    sheet.appendRow([
+      r.id, r.tanggal, r.nomorPerkara, r.uraian, r.penerimaan || 0,
+      r.pengeluaran || 0, r.kategori, r.keterangan || '', r.createdAt
+    ]);
+  });
 }`;
 
 

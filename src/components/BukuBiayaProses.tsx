@@ -100,6 +100,54 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
   const [formKeterangan, setFormKeterangan] = useState<string>('-');
   const [formKategori, setFormKategori] = useState<'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Lainnya'>('ATK');
 
+  // Kas Minus Modal State
+  const [isKasMinusModalOpen, setIsKasMinusModalOpen] = useState(false);
+  const [selectedKasMonth, setSelectedKasMonth] = useState<string | null>(null);
+
+  // Monthly breakdown calculation for Kas Akumulasi
+  const monthlyKasBreakdown = useMemo(() => {
+    const months = [
+      { num: '01', name: 'Januari' },
+      { num: '02', name: 'Februari' },
+      { num: '03', name: 'Maret' },
+      { num: '04', name: 'April' },
+      { num: '05', name: 'Mei' },
+      { num: '06', name: 'Juni' },
+      { num: '07', name: 'Juli' },
+      { num: '08', name: 'Agustus' },
+      { num: '09', name: 'September' },
+      { num: '10', name: 'Oktober' },
+      { num: '11', name: 'November' },
+      { num: '12', name: 'Desember' }
+    ];
+
+    let runningCumulative = 0;
+    return months.map(m => {
+      const monthRecords = records.filter(r => {
+        if (!r.tanggal) return false;
+        const [yr, mo] = r.tanggal.split('-');
+        if (selectedYear !== 'ALL' && yr !== selectedYear) return false;
+        return mo === m.num;
+      });
+
+      const penerimaan = monthRecords.reduce((s, r) => s + (r.penerimaan || 0), 0);
+      const pengeluaran = monthRecords.reduce((s, r) => s + (r.pengeluaran || 0), 0);
+      const netMonth = penerimaan - pengeluaran;
+      runningCumulative += netMonth;
+
+      return {
+        monthNum: m.num,
+        monthName: m.name,
+        penerimaan,
+        pengeluaran,
+        netMonth,
+        runningCumulative,
+        isMinus: netMonth < 0 || runningCumulative < 0,
+        records: monthRecords
+      };
+    });
+  }, [records, selectedYear]);
+
   // Form states for ATK deduction
   const [atkCaseNumber, setAtkCaseNumber] = useState<string>(cases[0]?.nomorPerkara || '14/Pdt.G/2026/PA.Pan');
   const [atkAmount, setAtkAmount] = useState<number>(100000);
@@ -607,17 +655,42 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
         </div>
 
         {/* Card 4: Akumulasi Kas Tahun 2026 */}
-        <div className={`border rounded-2xl p-4 flex items-center justify-between shadow-xs transition-colors ${
-          isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800 shadow-lg'
-        }`}>
+        <div 
+          onClick={() => {
+            setIsKasMinusModalOpen(true);
+            const firstMinus = monthlyKasBreakdown.find(m => m.isMinus);
+            if (firstMinus) {
+              setSelectedKasMonth(firstMinus.monthNum);
+            } else {
+              setSelectedKasMonth('01');
+            }
+          }}
+          className={`border rounded-2xl p-4 flex items-center justify-between shadow-xs transition-all cursor-pointer hover:border-cyan-500 hover:shadow-md active:scale-98 ${
+            isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800 shadow-lg'
+          }`}
+          title="Klik untuk melihat rincian & analisis saldo kas per bulan"
+        >
           <div>
-            <span className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-              Saldo Kas Akumulasi 2026
-            </span>
-            <p className="text-lg font-black text-cyan-600 mt-0.5">{formatRupiah(saldoAkumulasi)}</p>
+            <div className="flex items-center space-x-1.5">
+              <span className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                Saldo Kas Akumulasi {selectedYear}
+              </span>
+              <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                saldoAkumulasi < 0 
+                  ? 'bg-rose-100 text-rose-800 border border-rose-300 animate-pulse' 
+                  : 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300'
+              }`}>
+                {saldoAkumulasi < 0 ? '⚠️ MINUS - Klik Rincian' : '🔍 Rincian Bulanan'}
+              </span>
+            </div>
+            <p className={`text-lg font-black mt-0.5 ${saldoAkumulasi < 0 ? 'text-rose-600' : 'text-cyan-600'}`}>
+              {formatRupiah(saldoAkumulasi)}
+            </p>
           </div>
           <div className={`p-2.5 rounded-xl border ${
-            isLight ? 'bg-cyan-50 border-cyan-200 text-cyan-700' : 'bg-cyan-950/60 border-cyan-800/80 text-cyan-400'
+            saldoAkumulasi < 0 
+              ? 'bg-rose-50 border-rose-200 text-rose-700' 
+              : isLight ? 'bg-cyan-50 border-cyan-200 text-cyan-700' : 'bg-cyan-950/60 border-cyan-800/80 text-cyan-400'
           }`}>
             <FileText className="w-5 h-5" />
           </div>
@@ -1661,6 +1734,240 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
                 </div>
               </div>
 
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ANALISIS PENYEBAB MINUS SALDO KAS AKUMULASI */}
+      {isKasMinusModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
+          <div className={`w-full max-w-4xl rounded-2xl border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] ${
+            isLight ? 'bg-white border-slate-200 text-slate-800' : 'bg-slate-900 border-slate-800 text-white'
+          }`}>
+            
+            {/* Header */}
+            <div className={`px-6 py-4 border-b flex items-center justify-between shrink-0 ${
+              saldoAkumulasi < 0 ? 'bg-rose-950/80 text-rose-100 border-rose-800' : 'bg-cyan-950/80 text-cyan-100 border-cyan-800'
+            }`}>
+              <div className="flex items-center space-x-3">
+                <div className={`p-2 rounded-xl ${saldoAkumulasi < 0 ? 'bg-rose-500/30 text-rose-300' : 'bg-cyan-500/30 text-cyan-300'}`}>
+                  <AlertTriangle className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base">
+                    Analisis Breakdown & Penyebab Saldo Kas Akumulasi ({selectedYear})
+                  </h3>
+                  <p className="text-xs opacity-80">
+                    Menampilkan rincian saldo masuk/keluar per bulan & transaksi yang menyebabkan posisi kas minus.
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setIsKasMinusModalOpen(false)} className="p-1 rounded-lg hover:bg-white/10 text-slate-300">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 overflow-y-auto space-y-6 text-xs">
+              
+              {/* Top Alert Banner */}
+              <div className={`p-4 rounded-xl border flex items-start space-x-3 ${
+                saldoAkumulasi < 0 
+                  ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200' 
+                  : 'bg-cyan-50 dark:bg-cyan-950/50 border-cyan-300 dark:border-cyan-800 text-cyan-900 dark:text-cyan-200'
+              }`}>
+                <FileText className="w-5 h-5 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-extrabold text-sm block">
+                    {saldoAkumulasi < 0 ? '⚠️ Peringatan: Saldo Kas Akumulasi Minus!' : 'ℹ️ Ringkasan Posisi Kas Akumulasi'}
+                  </span>
+                  <p className="mt-1 leading-relaxed">
+                    Total Saldo Kas Akumulasi saat ini adalah <strong className="font-mono">{formatRupiah(saldoAkumulasi)}</strong>. 
+                    {monthlyKasBreakdown.filter(m => m.isMinus).length > 0 ? (
+                      <> Terdeteksi <strong className="text-rose-600 dark:text-rose-400 font-bold">{monthlyKasBreakdown.filter(m => m.isMinus).length} bulan</strong> memiliki pengeluaran melebihi penerimaan atau membuat akumulasi menjadi minus.</>
+                    ) : (
+                      <> Arus kas berjalan normal dan saldo akumulasi dalam keadaan positif.</>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* Table of Monthly Breakdown */}
+              <div>
+                <h4 className="font-bold text-sm mb-2 text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                  <span>📊 Tabel Arus Kas Per Bulan ({selectedYear}):</span>
+                  <span className="text-[11px] text-slate-400 font-normal">Klik baris bulan untuk melihat detail transaksi</span>
+                </h4>
+
+                <div className="border rounded-xl overflow-hidden shadow-xs border-slate-200 dark:border-slate-800">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className={`border-b font-extrabold uppercase text-[10px] ${
+                        isLight ? 'bg-slate-100 text-slate-700' : 'bg-slate-800 text-slate-300'
+                      }`}>
+                        <th className="p-2.5">Bulan</th>
+                        <th className="p-2.5 text-right">Penerimaan (Rp)</th>
+                        <th className="p-2.5 text-right">Pengeluaran (Rp)</th>
+                        <th className="p-2.5 text-right">Net Bulan Ini</th>
+                        <th className="p-2.5 text-right">Saldo Akumulasi</th>
+                        <th className="p-2.5 text-center">Status</th>
+                        <th className="p-2.5 text-center">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                      {monthlyKasBreakdown.map(m => {
+                        const isSelected = selectedKasMonth === m.monthNum;
+                        return (
+                          <tr 
+                            key={m.monthNum}
+                            onClick={() => setSelectedKasMonth(m.monthNum)}
+                            className={`cursor-pointer transition-colors ${
+                              isSelected
+                                ? 'bg-cyan-50 dark:bg-cyan-950/60 font-bold'
+                                : m.isMinus
+                                ? 'bg-rose-50/70 dark:bg-rose-950/30'
+                                : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                            }`}
+                          >
+                            <td className="p-2.5 font-bold flex items-center space-x-2">
+                              <span>{m.monthName}</span>
+                              {m.records.length > 0 && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                                  {m.records.length} trx
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-2.5 text-right font-mono text-emerald-600 dark:text-emerald-400">
+                              {m.penerimaan > 0 ? formatRupiah(m.penerimaan) : '-'}
+                            </td>
+                            <td className="p-2.5 text-right font-mono text-rose-600 dark:text-rose-400">
+                              {m.pengeluaran > 0 ? formatRupiah(m.pengeluaran) : '-'}
+                            </td>
+                            <td className={`p-2.5 text-right font-mono font-bold ${
+                              m.netMonth < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-300'
+                            }`}>
+                              {formatRupiah(m.netMonth)}
+                            </td>
+                            <td className={`p-2.5 text-right font-mono font-extrabold ${
+                              m.runningCumulative < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-cyan-600 dark:text-cyan-400'
+                            }`}>
+                              {formatRupiah(m.runningCumulative)}
+                            </td>
+                            <td className="p-2.5 text-center">
+                              {m.netMonth < 0 ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                                  ⚠️ MINUS ({formatRupiah(m.netMonth)})
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                  🟢 Positif
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-2.5 text-center">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedKasMonth(m.monthNum);
+                                }}
+                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                                  isSelected 
+                                    ? 'bg-cyan-600 text-white' 
+                                    : 'bg-slate-200 dark:bg-slate-800 hover:bg-cyan-500 hover:text-white'
+                                }`}
+                              >
+                                {isSelected ? 'Dipilih' : 'Detail'}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Transactions Detail for Selected Month */}
+              {selectedKasMonth && (() => {
+                const selMonthData = monthlyKasBreakdown.find(m => m.monthNum === selectedKasMonth);
+                if (!selMonthData) return null;
+
+                return (
+                  <div className="p-4 rounded-xl border bg-slate-50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-700 space-y-3">
+                    <div className="flex items-center justify-between border-b pb-2 border-slate-300 dark:border-slate-700">
+                      <h5 className="font-extrabold text-sm text-slate-800 dark:text-slate-100 flex items-center space-x-2">
+                        <span>🔍 Detail Transaksi Kas Bulan {selMonthData.monthName} ({selMonthData.records.length} Transaksi)</span>
+                        {selMonthData.netMonth < 0 && (
+                          <span className="px-2 py-0.5 rounded bg-rose-200 text-rose-900 font-bold text-[10px]">
+                            Penyebab Minus Bulan Ini
+                          </span>
+                        )}
+                      </h5>
+                      <span className="font-mono font-bold text-xs text-slate-600 dark:text-slate-300">
+                        Net: {formatRupiah(selMonthData.netMonth)}
+                      </span>
+                    </div>
+
+                    {selMonthData.records.length === 0 ? (
+                      <p className="text-slate-400 italic py-3 text-center">Tidak ada catatan transaksi pada bulan {selMonthData.monthName}.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-[11px] border-collapse">
+                          <thead>
+                            <tr className="font-bold border-b border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400">
+                              <th className="p-2">Tanggal</th>
+                              <th className="p-2">Nomor Perkara</th>
+                              <th className="p-2">Uraian Transaksi</th>
+                              <th className="p-2">Kategori</th>
+                              <th className="p-2 text-right">Penerimaan</th>
+                              <th className="p-2 text-right">Pengeluaran</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                            {selMonthData.records.map(r => (
+                              <tr key={r.id} className={r.pengeluaran > 0 ? 'bg-rose-50/40 dark:bg-rose-950/20' : ''}>
+                                <td className="p-2 font-mono text-slate-600 dark:text-slate-400">{r.tanggal}</td>
+                                <td className="p-2 font-mono font-bold text-amber-700 dark:text-amber-400">{r.nomorPerkara || '-'}</td>
+                                <td className="p-2 font-semibold text-slate-800 dark:text-slate-200">
+                                  {r.uraian}
+                                  {r.keterangan && <span className="block text-[10px] text-slate-400 font-normal">{r.keterangan}</span>}
+                                </td>
+                                <td className="p-2">
+                                  <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                                    {r.kategori}
+                                  </span>
+                                </td>
+                                <td className="p-2 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                  {r.penerimaan > 0 ? formatRupiah(r.penerimaan) : '-'}
+                                </td>
+                                <td className="p-2 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
+                                  {r.pengeluaran > 0 ? formatRupiah(r.pengeluaran) : '-'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+            </div>
+
+            {/* Footer */}
+            <div className={`px-6 py-4 border-t flex justify-end shrink-0 ${
+              isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800 border-slate-800'
+            }`}>
+              <button
+                type="button"
+                onClick={() => setIsKasMinusModalOpen(false)}
+                className="px-5 py-2 bg-slate-800 text-white hover:bg-slate-700 rounded-xl font-bold text-xs transition-colors"
+              >
+                Tutup Analisis
+              </button>
             </div>
 
           </div>
