@@ -90,10 +90,6 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
   const [selectedZeroingCase, setSelectedZeroingCase] = useState<CaseRecord | null>(null);
   const [zeroingItems, setZeroingItems] = useState<{ uraian: string; amount: number; kategori: 'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Lainnya' }[]>([]);
 
-  // States for Spreadsheet Column Structure Guide Modal
-  const [isSpreadsheetGuideOpen, setIsSpreadsheetGuideOpen] = useState<boolean>(false);
-  const [copiedNotice, setCopiedNotice] = useState<boolean>(false);
-
   // Form states for manual entry
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formTanggal, setFormTanggal] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -1556,114 +1552,6 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 5: PANDUAN STRUKTUR KOLOM SPREADSHEET (CSV & GOOGLE SHEETS) */}
-      {isSpreadsheetGuideOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden p-6 space-y-5 my-auto text-xs">
-            
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center space-x-2 text-cyan-400">
-                <Table className="w-5 h-5" />
-                <h3 className="font-extrabold text-slate-100 text-base">
-                  Panduan & Format Struktur Kolom Spreadsheet (Google Sheet / CSV)
-                </h3>
-              </div>
-              <button onClick={() => setIsSpreadsheetGuideOpen(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4 text-slate-300 leading-relaxed">
-              <p>
-                Agar aplikasi dapat menyinkronkan data secara otomatis dari Google Sheets / CSV publik tanpa error, pastikan nama kolom di baris pertama (Header) dibuat sesuai dengan salah satu dari struktur di bawah ini:
-              </p>
-
-              {/* Format 1: Log Buku Bantu Biaya Proses */}
-              <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-amber-400 uppercase tracking-wide text-xs">
-                    1. Format Sheet Log Transaksi Buku Bantu Biaya Proses
-                  </h4>
-                  <button
-                    onClick={() => {
-                      const header = "tanggal,nomor_perkara,uraian,penerimaan,pengeluaran,kategori,keterangan";
-                      navigator.clipboard.writeText(header);
-                      setCopiedNotice(true);
-                      setTimeout(() => setCopiedNotice(false), 2000);
-                    }}
-                    className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-amber-300 rounded text-[11px] font-semibold flex items-center space-x-1"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>{copiedNotice ? 'Tersalin!' : 'Salin Header CSV'}</span>
-                  </button>
-                </div>
-                <div className="bg-slate-950 p-2.5 rounded border border-slate-800 font-mono text-[11px] text-amber-300 overflow-x-auto">
-                  tanggal,nomor_perkara,uraian,penerimaan,pengeluaran,kategori,keterangan
-                </div>
-                <ul className="list-disc pl-4 space-y-1 text-[11px] text-slate-400">
-                  <li><strong>tanggal</strong>: Format YYYY-MM-DD atau DD/MM/YYYY (Contoh: 2026-02-15)</li>
-                  <li><strong>nomor_perkara</strong>: Nomor perkara e-Court (Contoh: 14/Pdt.G/2026/PA.Pan)</li>
-                  <li><strong>uraian</strong>: Deskripsi transaksi penerimaan / pengeluaran</li>
-                  <li><strong>penerimaan</strong>: Nominal penerimaan (Isi 0 jika pengeluaran)</li>
-                  <li><strong>pengeluaran</strong>: Nominal pengeluaran (Isi 0 jika penerimaan)</li>
-                  <li><strong>kategori</strong>: ATK / Proses / Meterai / Redaksi / Panggilan / Lainnya</li>
-                  <li><strong>keterangan</strong>: Catatan tambahan atau nama instansi</li>
-                </ul>
-              </div>
-
-              {/* Format 2: Data Utama Perkara */}
-              <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-emerald-400 uppercase tracking-wide text-xs">
-                    2. Format Sheet Master Data Perkara (Jika Menggunakan 2 Sheet)
-                  </h4>
-                  <button
-                    onClick={() => {
-                      const header = "nomor_perkara,nama_pihak,jenis_perkara,tingkat_perkara,tanggal_register,tanggal_terima_kasasi_pk,tanggal_putus,status,panjar_awal,pengeluaran,saldo_perkara";
-                      navigator.clipboard.writeText(header);
-                      setCopiedNotice(true);
-                      setTimeout(() => setCopiedNotice(false), 2000);
-                    }}
-                    className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-emerald-300 rounded text-[11px] font-semibold flex items-center space-x-1"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Salin Header CSV</span>
-                  </button>
-                </div>
-                <div className="bg-slate-950 p-2.5 rounded border border-slate-800 font-mono text-[11px] text-emerald-300 overflow-x-auto">
-                  nomor_perkara,nama_pihak,jenis_perkara,tingkat_perkara,tanggal_register,tanggal_terima_kasasi_pk,tanggal_putus,status,panjar_awal,pengeluaran,saldo_perkara
-                </div>
-                <ul className="list-disc pl-4 space-y-1 text-[11px] text-slate-400">
-                  <li><strong>tingkat_perkara</strong>: Tingkat Pertama / Tingkat Banding / Kasasi / PK</li>
-                  <li><strong>tanggal_terima_kasasi_pk</strong>: Khusus perkara Kasasi/PK untuk menghitung deadline 3 bulan</li>
-                  <li><strong>status</strong>: Diperiksa / Putus / Minutasi / Selesai</li>
-                </ul>
-              </div>
-
-            </div>
-
-            <div className="pt-3 flex justify-between items-center border-t border-slate-800">
-              <a
-                href="data:text/csv;charset=utf-8,tanggal,nomor_perkara,uraian,penerimaan,pengeluaran,kategori,keterangan%0A2026-02-10,14/Pdt.G/2026/PA.Pan,Pemotongan Panjar ATK Pendaftaran Perkara,100000,0,ATK,Kepaniteraan Hukum%0A2026-02-12,14/Pdt.G/2026/PA.Pan,Biaya Panggilan / Relaas Sidang Pertama,0,95000,Panggilan,PT Pos Paniai"
-                download="template_buku_biaya_proses_PA_Paniai.csv"
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold flex items-center space-x-1.5 shadow-sm"
-              >
-                <Download className="w-4 h-4" />
-                <span>Unduh Contoh File CSV Template</span>
-              </a>
-              <button
-                type="button"
-                onClick={() => setIsSpreadsheetGuideOpen(false)}
-                className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-bold"
-              >
-                Tutup Panduan
-              </button>
-            </div>
-
           </div>
         </div>
       )}
