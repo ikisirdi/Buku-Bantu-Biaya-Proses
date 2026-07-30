@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="16" fill="#059669" />
+  <path d="M16 18h32v28H16z" fill="#047857" rx="4" />
+  <!-- Display Screen -->
+  <rect x="20" y="22" width="24" height="8" rx="2" fill="#dcfce7" />
+  <text x="40" y="28" font-family="monospace" font-weight="bold" font-size="6" fill="#15803d" text-anchor="end">Rp</text>
+  <!-- Calculator Buttons -->
+  <circle cx="24" cy="36" r="2" fill="#fbbf24" />
+  <circle cx="32" cy="36" r="2" fill="#34d399" />
+  <circle cx="40" cy="36" r="2" fill="#34d399" />
+  <circle cx="24" cy="42" r="2" fill="#34d399" />
+  <circle cx="32" cy="42" r="2" fill="#34d399" />
+  <circle cx="40" cy="42" r="2" fill="#f59e0b" />
+  <!-- Gavel / Scale subtle icon overlay -->
+  <path d="M32 10l6 4H26l6-4z" fill="#fef08a" />
+</svg>

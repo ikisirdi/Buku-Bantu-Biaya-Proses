@@ -1,7 +1,7 @@
 import React, { useState, useEffect, Fragment } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import { CaseRecord, BiayaProsesRecord } from '../types';
-import { X, Calculator, CheckCircle2, FileText, ArrowRight, ShieldCheck } from 'lucide-react';
+import { X, Calculator, CheckCircle2, FileText, ArrowRight, ShieldCheck, Printer, AlertTriangle } from 'lucide-react';
 
 interface JurnalBiayaModalProps {
   isOpen: boolean;
@@ -11,7 +11,8 @@ interface JurnalBiayaModalProps {
   onExecuteJurnal: (
     caseId: string, 
     nomorPerkara: string, 
-    journalItems: { uraian: string; amount: number; kategori: 'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Lainnya' }[]
+    journalItems: { uraian: string; amount: number; kategori: 'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Lainnya' }[],
+    tanggalJurnal: string
   ) => void;
   theme?: 'light' | 'dark';
 }
@@ -26,13 +27,16 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
 }) => {
   const isLight = theme === 'light';
   const [activeCaseId, setActiveCaseId] = useState<string>('');
-  
+  const [tanggalJurnal, setTanggalJurnal] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   useEffect(() => {
     if (selectedCase) {
       setActiveCaseId(selectedCase.id);
     } else if (cases.length > 0) {
       setActiveCaseId(cases[0].id);
     }
+    setErrorMessage(null);
   }, [selectedCase, cases, isOpen]);
 
   const currentCase = cases.find(c => c.id === activeCaseId) || selectedCase || cases[0];
@@ -95,7 +99,25 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
   const atkFee = activeFees.find(f => f.kategori === 'ATK')?.amount || 100000;
 
   const handleExecute = () => {
-    if (!currentCase) return;
+    if (!currentCase) {
+      setErrorMessage('Pilih perkara terlebih dahulu!');
+      return;
+    }
+
+    const currentSaldo = currentCase.saldoPerkara || 0;
+
+    // Balance validation requirement
+    if (currentSaldo <= 0) {
+      setErrorMessage(`❌ Eksekusi Ditolak: Perkara ${currentCase.nomorPerkara} tidak memiliki saldo panjar tersisa (Saldo: Rp 0). Jurnal tidak dapat dipotong.`);
+      return;
+    }
+
+    if (currentSaldo < totalRincian) {
+      setErrorMessage(`⚠️ Eksekusi Ditolak: Saldo perkara saat ini (Rp ${currentSaldo.toLocaleString('id-ID')}) KURANG dari total estimasi pengeluaran jurnal (Rp ${totalRincian.toLocaleString('id-ID')}). Silakan minta pihak melakukan Tambah Panjar Perkara (TBT) terlebih dahulu.`);
+      return;
+    }
+
+    setErrorMessage(null);
     const itemsToLog = activeFees
       .filter(f => f.amount > 0)
       .map(f => ({
@@ -104,8 +126,92 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
         kategori: f.kategori
       }));
 
-    onExecuteJurnal(currentCase.id, currentCase.nomorPerkara, itemsToLog);
+    onExecuteJurnal(currentCase.id, currentCase.nomorPerkara, itemsToLog, tanggalJurnal);
     onClose();
+  };
+
+  const handlePrintJurnalSheet = () => {
+    if (!currentCase) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Rincian Jurnal SKUM - ${currentCase.nomorPerkara}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 25px; color: #0f172a; font-size: 12px; }
+          .header { text-align: center; border-bottom: 2px solid #0284c7; padding-bottom: 12px; margin-bottom: 20px; }
+          .header h2 { margin: 0; font-size: 18px; color: #0369a1; text-transform: uppercase; }
+          .header p { margin: 4px 0 0 0; font-size: 12px; color: #475569; }
+          .meta { margin-bottom: 20px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; line-height: 1.8; }
+          table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+          th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
+          th { background-color: #f1f5f9; font-weight: bold; color: #1e293b; }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          .total-row { background-color: #e0f2fe; font-weight: bold; font-size: 13px; }
+          .footer { margin-top: 50px; display: flex; justify-content: space-between; font-size: 12px; }
+          .signature { text-align: center; width: 220px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h2>PENGADILAN AGAMA</h2>
+          <p>RINCIAN TABEL JURNAL BIAYA PERKARA (SKUM)</p>
+        </div>
+        <div class="meta">
+          <strong>Nomor Perkara:</strong> ${currentCase.nomorPerkara}<br/>
+          <strong>Nama Pihak:</strong> ${currentCase.namaPihak}<br/>
+          <strong>Jenis Perkara:</strong> ${currentCase.jenisPerkara}<br/>
+          <strong>Tanggal Pencatatan Jurnal:</strong> ${tanggalJurnal}<br/>
+          <strong>Saldo Panjar Tersedia:</strong> Rp ${(currentCase.saldoPerkara || 0).toLocaleString('id-ID')}
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th class="text-center" style="width: 35px;">No</th>
+              <th>Komponen Biaya Jurnal</th>
+              <th class="text-center" style="width: 100px;">Kategori Log</th>
+              <th class="text-right" style="width: 130px;">Nominal (Rp)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${activeFees.map((f, i) => `
+              <tr style="${f.amount === 0 ? 'opacity: 0.4;' : ''}">
+                <td class="text-center">${i + 1}</td>
+                <td>${f.name}</td>
+                <td class="text-center">${f.kategori}</td>
+                <td class="text-right">Rp ${f.amount.toLocaleString('id-ID')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot>
+            <tr class="total-row">
+              <th colspan="3" class="text-right">TOTAL ESTIMASI POTONGAN JURNAL:</th>
+              <th class="text-right">Rp ${totalRincian.toLocaleString('id-ID')}</th>
+            </tr>
+          </tfoot>
+        </table>
+        <div class="footer">
+          <div class="signature">
+            Mengetahui,<br/>Panitera<br/><br/><br/><br/>
+            ( _______________________ )
+          </div>
+          <div class="signature">
+            Petugas Kasir / Jurnal,<br/><br/><br/><br/>
+            ( _______________________ )
+          </div>
+        </div>
+        <script>
+          window.onload = function() { window.print(); };
+        </script>
+      </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
   };
 
   if (!isOpen) return null;
@@ -152,41 +258,86 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
                       Pencatatan Jurnal Biaya SKUM Perkara
                     </DialogTitle>
                     <p className="text-[11px] opacity-80">
-                      Otomatis memotong saldo SKUM dan memindahkan ATK (Rp 100rb) ke Buku Bantu Biaya Proses
+                      Memotong saldo SKUM dan mencatat jurnal biaya serta pengalihan ATK (Rp 100rb) ke Buku Bantu
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={onClose}
-                  className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={handlePrintJurnalSheet}
+                    className="p-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold flex items-center space-x-1.5 transition-colors border border-amber-500/30"
+                    title="Cetak Rincian Jurnal SKUM"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span className="hidden sm:inline text-xs">Cetak</span>
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               {/* Body */}
               <div className="p-6 overflow-y-auto space-y-5 text-xs">
                 
-                {/* Case Selector Dropdown */}
-                <div>
-                  <label className="block font-bold mb-1.5 text-slate-700 dark:text-slate-300">
-                    Pilih Nomor Perkara Terdaftar:
-                  </label>
-                  <select
-                    value={activeCaseId}
-                    onChange={(e) => setActiveCaseId(e.target.value)}
-                    className={`w-full p-2.5 rounded-xl border font-mono font-bold text-xs ${
-                      isLight 
-                        ? 'bg-slate-50 border-slate-300 text-slate-900' 
-                        : 'bg-slate-800 border-slate-700 text-emerald-400'
-                    }`}
-                  >
-                    {cases.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nomorPerkara} — {c.namaPihak} ({c.jenisPerkara}) | Saldo Panjar: Rp {(c.saldoPerkara || 0).toLocaleString('id-ID')}
-                      </option>
-                    ))}
-                  </select>
+                {/* Error Banner when balance insufficient */}
+                {errorMessage && (
+                  <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-300 dark:border-red-800 text-red-800 dark:text-red-200 flex items-start space-x-3 shadow-sm animate-pulse">
+                    <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                    <div className="font-semibold text-xs leading-relaxed">
+                      {errorMessage}
+                    </div>
+                  </div>
+                )}
+
+                {/* Case Selector Dropdown & Date Picker */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold mb-1.5 text-slate-700 dark:text-slate-300">
+                      Pilih Nomor Perkara Terdaftar:
+                    </label>
+                    <select
+                      value={activeCaseId}
+                      onChange={(e) => {
+                        setActiveCaseId(e.target.value);
+                        setErrorMessage(null);
+                      }}
+                      className={`w-full p-2.5 rounded-xl border font-mono font-bold text-xs ${
+                        isLight 
+                          ? 'bg-slate-50 border-slate-300 text-slate-900' 
+                          : 'bg-slate-800 border-slate-700 text-emerald-400'
+                      }`}
+                    >
+                      {cases.length === 0 ? (
+                        <option value="">-- Belum ada data perkara --</option>
+                      ) : (
+                        cases.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nomorPerkara} — {c.namaPihak} ({c.jenisPerkara}) | Saldo: Rp {(c.saldoPerkara || 0).toLocaleString('id-ID')}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1.5 text-slate-700 dark:text-slate-300">
+                      Tanggal Jurnal Transaksi:
+                    </label>
+                    <input
+                      type="date"
+                      value={tanggalJurnal}
+                      onChange={(e) => setTanggalJurnal(e.target.value)}
+                      className={`w-full p-2.5 rounded-xl border font-mono font-bold text-xs ${
+                        isLight 
+                          ? 'bg-slate-50 border-slate-300 text-slate-900' 
+                          : 'bg-slate-800 border-slate-700 text-emerald-400'
+                      }`}
+                    />
+                  </div>
                 </div>
 
                 {/* Selected Case Info Banner */}
@@ -208,7 +359,11 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-500 uppercase font-bold block">Saldo SKUM Saat Ini</span>
-                      <span className="font-bold text-amber-600 dark:text-amber-400 text-sm">
+                      <span className={`font-bold text-sm ${
+                        (currentCase.saldoPerkara || 0) < totalRincian 
+                          ? 'text-red-600 dark:text-red-400' 
+                          : 'text-amber-600 dark:text-amber-400'
+                      }`}>
                         Rp {(currentCase.saldoPerkara || 0).toLocaleString('id-ID')}
                       </span>
                     </div>
@@ -218,7 +373,7 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
                 {/* Journal Component Breakdown Table */}
                 <div>
                   <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-2 flex items-center justify-between">
-                    <span>📋 Rincian Jurnal Biaya ({currentCase?.jenisPerkara}):</span>
+                    <span>📋 Rincian Jurnal Biaya ({currentCase?.jenisPerkara || 'Gugatan'}):</span>
                     <span className="text-emerald-600 font-extrabold text-xs">
                       Est. Total: Rp {totalRincian.toLocaleString('id-ID')}
                     </span>
@@ -277,8 +432,9 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
                   <div>
                     <span className="font-bold block">Dampak Eksekusi Jurnal Biaya:</span>
                     <ul className="list-disc list-inside mt-1 space-y-0.5 opacity-90">
-                      <li>Saldo Perkara <strong>{currentCase?.nomorPerkara}</strong> akan dipotong sebesar total pengeluaran jurnal.</li>
+                      <li>Saldo Perkara <strong>{currentCase?.nomorPerkara || '-'}</strong> akan dipotong sebesar total pengeluaran jurnal.</li>
                       <li>Potongan <strong>Biaya Pemberkasan / ATK (Rp {atkFee.toLocaleString('id-ID')})</strong> otomatis menjadi saldo penerimaan di menu <strong>Buku Bantu Biaya Proses</strong> dengan label nomor perkara tersebut.</li>
+                      <li>Pencatatan jurnal ini akan menggunakan tanggal transaksi: <strong>{tanggalJurnal}</strong>.</li>
                     </ul>
                   </div>
                 </div>
@@ -314,3 +470,4 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
     </Transition>
   );
 };
+

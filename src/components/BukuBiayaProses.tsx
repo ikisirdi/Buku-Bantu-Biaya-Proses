@@ -80,6 +80,7 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
   const [selectedYear, setSelectedYear] = useState<string>('2026');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
+  const [isPrintJurnalModalOpen, setIsPrintJurnalModalOpen] = useState<boolean>(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isAtkModalOpen, setIsAtkModalOpen] = useState<boolean>(false);
   const [isLipa7aOpen, setIsLipa7aOpen] = useState<boolean>(false);
@@ -448,6 +449,17 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
           >
             <PlusCircle className="w-4 h-4" />
             <span>+ Log Transaksi</span>
+          </button>
+
+          {/* Print Jurnal Biaya Button */}
+          <button
+            id="print-jurnal-biaya-btn"
+            onClick={() => setIsPrintJurnalModalOpen(true)}
+            className="flex items-center space-x-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 border border-indigo-500/40"
+            title="Cetak Tabel Log Jurnal Biaya SKUM Perkara"
+          >
+            <Printer className="w-4 h-4 text-indigo-200" />
+            <span>Cetak Tabel Jurnal Biaya</span>
           </button>
 
           {/* Print Button */}
@@ -1687,6 +1699,117 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
               >
                 Tutup Panduan
               </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: CETAK TABEL LOG JURNAL BIAYA SKUM */}
+      {isPrintJurnalModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-slate-950/90 backdrop-blur-md overflow-y-auto">
+          <div className="bg-white text-black w-full max-w-4xl rounded-xl shadow-2xl p-6 sm:p-10 space-y-6 my-auto print:p-0 print:shadow-none print:w-full print:max-w-none">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-gray-300 print:hidden">
+              <div className="flex items-center space-x-2">
+                <Printer className="w-5 h-5 text-indigo-600" />
+                <h3 className="font-bold text-gray-800 text-sm sm:text-base">
+                  Pratinjau Cetak - TABEL BUKU JURNAL BIAYA SKUM PERKARA
+                </h3>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-md transition-colors flex items-center space-x-1.5"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Cetak Jurnal</span>
+                </button>
+                <button
+                  onClick={() => setIsPrintJurnalModalOpen(false)}
+                  className="p-1.5 text-gray-500 hover:text-black rounded-lg hover:bg-gray-200"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Document Content */}
+            <div id="printable-jurnal-biaya" className="space-y-6 font-serif text-black leading-tight">
+              <div className="text-center font-bold space-y-1">
+                <h1 className="text-base sm:text-lg tracking-wide uppercase">TABEL BUKU JURNAL BIAYA SKUM PERKARA</h1>
+                <h2 className="text-sm sm:text-base tracking-wider uppercase">PENGADILAN AGAMA</h2>
+                <h3 className="text-xs sm:text-sm tracking-widest">TAHUN 2026</h3>
+                <p className="text-xs sm:text-sm pt-2">
+                  PERIODE / BULAN : <span className="border-b border-dotted border-black px-4 font-mono uppercase">{selectedMonth === 'ALL' ? 'SEMUA BULAN 2026' : selectedMonth}</span>
+                </p>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse border border-black text-center">
+                  <thead>
+                    <tr className="font-bold uppercase bg-gray-100 border-b border-black">
+                      <th className="border border-black p-2 w-8">NO</th>
+                      <th className="border border-black p-2 w-24">TANGGAL</th>
+                      <th className="border border-black p-2 w-36">NOMOR PERKARA</th>
+                      <th className="border border-black p-2">URAIAN JURNAL BIAYA</th>
+                      <th className="border border-black p-2 w-24">KATEGORI</th>
+                      <th className="border border-black p-2 w-28">DEBET (PENERIMAAN)</th>
+                      <th className="border border-black p-2 w-28">KREDIT (PENGELUARAN)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRecords.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="border border-black p-4 text-center italic text-gray-500">
+                          Belum ada catatan log jurnal biaya untuk periode {selectedMonth}.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredRecords.map((r, i) => (
+                        <tr key={r.id} className="border-b border-black text-[11px]">
+                          <td className="border border-black py-1 px-1 font-bold">{i + 1}</td>
+                          <td className="border border-black py-1 px-1 font-mono">{formatShortDate(r.tanggal)}</td>
+                          <td className="border border-black py-1 px-1 font-mono font-bold text-left">{r.nomorPerkara}</td>
+                          <td className="border border-black py-1 px-2 text-left">{r.uraian}</td>
+                          <td className="border border-black py-1 px-1 text-center font-bold">{r.kategori}</td>
+                          <td className="border border-black py-1 px-2 text-right font-mono">
+                            {r.penerimaan > 0 ? formatRupiah(r.penerimaan) : '-'}
+                          </td>
+                          <td className="border border-black py-1 px-2 text-right font-mono">
+                            {r.pengeluaran > 0 ? formatRupiah(r.pengeluaran) : '-'}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr className="font-bold bg-gray-100 uppercase border-t border-black text-xs">
+                      <th colSpan={5} className="border border-black p-2 text-right">TOTAL JURNAL :</th>
+                      <th className="border border-black p-2 text-right font-mono">{formatRupiah(totalPenerimaan)}</th>
+                      <th className="border border-black p-2 text-right font-mono">{formatRupiah(totalPengeluaran)}</th>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              {/* Signature Block */}
+              <div className="pt-8 grid grid-cols-2 text-xs font-serif text-center">
+                <div>
+                  <p>Mengetahui,</p>
+                  <p className="font-bold">Panitera Pengadilan Agama</p>
+                  <div className="h-16"></div>
+                  <p className="font-bold border-b border-black inline-block px-6">( _______________________ )</p>
+                </div>
+                <div>
+                  <p>Kasir / Petugas Jurnal,</p>
+                  <p className="font-bold">Pengadilan Agama</p>
+                  <div className="h-16"></div>
+                  <p className="font-bold border-b border-black inline-block px-6">( _______________________ )</p>
+                </div>
+              </div>
+
             </div>
 
           </div>

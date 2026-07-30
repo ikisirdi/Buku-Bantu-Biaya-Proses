@@ -314,9 +314,10 @@ export default function App() {
   const handleExecuteJurnal = (
     caseId: string,
     nomorPerkara: string,
-    journalItems: { uraian: string; amount: number; kategori: 'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Lainnya' }[]
+    journalItems: { uraian: string; amount: number; kategori: 'ATK' | 'Proses' | 'Meterai' | 'Redaksi' | 'Panggilan' | 'Lainnya' }[],
+    tanggalJurnal?: string
   ) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = tanggalJurnal || new Date().toISOString().split('T')[0];
     const newRecords: BiayaProsesRecord[] = journalItems.map((item, idx) => ({
       id: `jurnal-${Date.now()}-${idx}`,
       tanggal: today,
