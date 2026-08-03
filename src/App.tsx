@@ -8,7 +8,7 @@ import {
   BiayaProsesRecord,
   JurnalBiayaSkumRecord
 } from './types';
-import { StorageService } from './services/storage';
+import { StorageService, TARGET_APPS_SCRIPT_URL } from './services/storage';
 import { SyncService } from './services/syncService';
 import { Navbar } from './components/Navbar';
 import { CaseTable } from './components/CaseTable';
@@ -74,31 +74,39 @@ export default function App() {
     setNotifications(loadedNotifs);
     setCacheMeta(StorageService.getCacheMeta());
 
-    if (currentSyncSettings.googleSheetUrl && currentSyncSettings.googleSheetUrl.trim().length > 0) {
+    const targetUrl = (currentSyncSettings.googleSheetUrl && currentSyncSettings.googleSheetUrl.trim().length > 0)
+      ? currentSyncSettings.googleSheetUrl.trim()
+      : TARGET_APPS_SCRIPT_URL;
+
+    if (targetUrl) {
       try {
-        if (currentSyncSettings.googleSheetUrl.includes('script.google.com')) {
-          const appsScriptData = await SyncService.fetchFromAppsScript(currentSyncSettings.googleSheetUrl);
-          if (appsScriptData) {
+        if (targetUrl.includes('script.google.com')) {
+          const appsScriptData = await SyncService.fetchFromAppsScript(targetUrl);
+          if (appsScriptData && appsScriptData.cases.length > 0) {
             setCases(appsScriptData.cases);
             StorageService.saveCases(appsScriptData.cases);
 
-            setBiayaProsesRecords(appsScriptData.biayaProses);
-            StorageService.saveBiayaProsesRecords(appsScriptData.biayaProses);
+            if (appsScriptData.biayaProses.length > 0) {
+              setBiayaProsesRecords(appsScriptData.biayaProses);
+              StorageService.saveBiayaProsesRecords(appsScriptData.biayaProses);
+            }
 
-            setJurnalSkumRecords(appsScriptData.jurnalSkum);
-            StorageService.saveJurnalSkumRecords(appsScriptData.jurnalSkum);
+            if (appsScriptData.jurnalSkum.length > 0) {
+              setJurnalSkumRecords(appsScriptData.jurnalSkum);
+              StorageService.saveJurnalSkumRecords(appsScriptData.jurnalSkum);
+            }
 
             setCacheMeta(StorageService.getCacheMeta());
           }
         } else {
-          const casesData = await SyncService.fetchGoogleSheetCsv(currentSyncSettings.googleSheetUrl);
-          if (Array.isArray(casesData)) {
+          const casesData = await SyncService.fetchGoogleSheetCsv(targetUrl);
+          if (Array.isArray(casesData) && casesData.length > 0) {
             setCases(casesData);
             StorageService.saveCases(casesData);
           }
 
-          const logData = await SyncService.fetchGoogleSheetBiayaProsesCsv(currentSyncSettings.googleSheetUrl);
-          if (Array.isArray(logData)) {
+          const logData = await SyncService.fetchGoogleSheetBiayaProsesCsv(targetUrl);
+          if (Array.isArray(logData) && logData.length > 0) {
             setBiayaProsesRecords(logData);
             StorageService.saveBiayaProsesRecords(logData);
           }

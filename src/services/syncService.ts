@@ -217,11 +217,55 @@ export class SyncService {
       const response = await fetch(targetUrl);
       if (!response.ok) return null;
       const json = await response.json();
-      if (json && (json.status === 'success' || Array.isArray(json.cases) || Array.isArray(json.jurnalSkum) || Array.isArray(json.biayaProses))) {
+
+      let rawCases: any[] = [];
+      let rawJurnal: any[] = [];
+      let rawBiaya: any[] = [];
+
+      if (Array.isArray(json)) {
+        rawCases = json;
+      } else if (json && typeof json === 'object') {
+        if (Array.isArray(json.cases)) rawCases = json.cases;
+        else if (Array.isArray(json.data)) rawCases = json.data;
+        else if (Array.isArray(json.records)) rawCases = json.records;
+
+        if (Array.isArray(json.jurnalSkum)) rawJurnal = json.jurnalSkum;
+        else if (Array.isArray(json.jurnal)) rawJurnal = json.jurnal;
+
+        if (Array.isArray(json.biayaProses)) rawBiaya = json.biayaProses;
+        else if (Array.isArray(json.biaya)) rawBiaya = json.biaya;
+      }
+
+      if (rawCases.length > 0 || rawJurnal.length > 0 || rawBiaya.length > 0) {
+        const mappedCases: CaseRecord[] = rawCases.map((c, idx) => {
+          const panjar = Number(c.panjarAwal || c.panjar_awal || c.panjar || c.penerimaan || 0);
+          const saldo = Number(c.saldoPerkara || c.saldo_perkara || c.saldo || 0);
+          const pengeluaran = Number(c.pengeluaran || c.biaya || (panjar > saldo ? panjar - saldo : 0));
+
+          return {
+            id: String(c.id || `appscript-case-${idx + 1}`),
+            nomorPerkara: String(c.nomorPerkara || c.nomor_perkara || c.no_perkara || c.nomor || `Perkara ${idx + 1}`),
+            namaPihak: String(c.namaPihak || c.nama_pihak || c.nama || c.pihak || 'Pihak Berperkara'),
+            jenisPerkara: String(c.jenisPerkara || c.jenis_perkara || c.jenis || 'Cerai Gugat') as any,
+            kategoriPerkara: String(c.kategoriPerkara || c.kategori || 'Gugatan') as any,
+            saldoPerkara: saldo,
+            panjarAwal: panjar || saldo || 1000000,
+            pengeluaran: pengeluaran,
+            tanggalRegister: String(c.tanggalRegister || c.tanggal_register || c.tanggal || new Date().toISOString().split('T')[0]),
+            tanggalPutus: c.tanggalPutus || c.tanggal_putus ? String(c.tanggalPutus || c.tanggal_putus) : undefined,
+            status: String(c.status || c.statusPerkara || 'Pendaftaran') as any,
+            hakimKetua: c.hakimKetua || c.hakim ? String(c.hakimKetua || c.hakim) : undefined,
+            panitera: c.panitera ? String(c.panitera) : undefined,
+            ruangSidang: c.ruangSidang ? String(c.ruangSidang) : undefined,
+            catatan: c.catatan ? String(c.catatan) : undefined,
+            updatedAt: c.updatedAt ? String(c.updatedAt) : new Date().toISOString()
+          };
+        });
+
         return {
-          cases: Array.isArray(json.cases) ? json.cases : [],
-          jurnalSkum: Array.isArray(json.jurnalSkum) ? json.jurnalSkum : [],
-          biayaProses: Array.isArray(json.biayaProses) ? json.biayaProses : []
+          cases: mappedCases,
+          jurnalSkum: rawJurnal,
+          biayaProses: rawBiaya
         };
       }
     } catch (err) {

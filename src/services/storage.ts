@@ -13,9 +13,11 @@ const STORAGE_KEYS = {
 export const INITIAL_BIAYA_PROSES_RECORDS: BiayaProsesRecord[] = [];
 export const INITIAL_JURNAL_SKUM_RECORDS: JurnalBiayaSkumRecord[] = [];
 
+export const TARGET_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_N2FEFTTruxZzyR5BzVRted8jpgE-qTSABwivhx0_s7v8aDR1VIpIsxhlABbY6jQs/exec';
+
 export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
-  autoSyncEnabled: false,
-  googleSheetUrl: '',
+  autoSyncEnabled: true,
+  googleSheetUrl: TARGET_APPS_SCRIPT_URL,
   syncIntervalMinutes: 15,
   syncStatus: 'idle',
 };
@@ -85,7 +87,11 @@ export class StorageService {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.SYNC_SETTINGS);
       if (raw) {
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        if (!parsed.googleSheetUrl || parsed.googleSheetUrl.trim() === '') {
+          parsed.googleSheetUrl = TARGET_APPS_SCRIPT_URL;
+        }
+        return parsed;
       }
     } catch (e) {
       console.error('Error loading sync settings:', e);
