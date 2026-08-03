@@ -136,11 +136,28 @@ export class StorageService {
   }
 
   static resetToDefault(): void {
-    localStorage.removeItem(STORAGE_KEYS.CASES);
-    localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
-    localStorage.removeItem(STORAGE_KEYS.CACHE_META);
-    localStorage.removeItem(STORAGE_KEYS.BIAYA_PROSES);
-    localStorage.removeItem(STORAGE_KEYS.JURNAL_SKUM);
+    // Clean all storage keys including legacy keys
+    const legacyKeys = [
+      'pa_perkara_data',
+      'pa_perkara_data_v1',
+      'pa_perkara_data_v2',
+      'pa_perkara_biaya_proses_v1',
+      'pa_perkara_biaya_proses_v2',
+      'pa_perkara_jurnal_skum_v1',
+      'pa_perkara_cache_meta_v1',
+      'pa_perkara_cache_meta_v2',
+      'pa_perkara_notifications_v1',
+      'pa_perkara_notifications_v2',
+      STORAGE_KEYS.CASES,
+      STORAGE_KEYS.NOTIFICATIONS,
+      STORAGE_KEYS.CACHE_META,
+      STORAGE_KEYS.BIAYA_PROSES,
+      STORAGE_KEYS.JURNAL_SKUM,
+    ];
+    legacyKeys.forEach(k => {
+      try { localStorage.removeItem(k); } catch (e) { /* ignore */ }
+    });
+
     this.saveCases(INITIAL_CASE_RECORDS);
     this.saveBiayaProsesRecords(INITIAL_BIAYA_PROSES_RECORDS);
     this.saveJurnalSkumRecords(INITIAL_JURNAL_SKUM_RECORDS);

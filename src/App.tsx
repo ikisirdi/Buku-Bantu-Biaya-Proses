@@ -633,9 +633,20 @@ export default function App() {
     addNotification('Cache Direset', 'Basis data JSON lokal direset ke keadaan kosong/awal.', 'info');
   };
 
-  const handleForceReload = () => {
-    loadDataFromSource(true);
-    addNotification('Muat Ulang Data Terkini', 'Data telah diperbarui secara langsung dari Google Spreadsheet & JSON.', 'success');
+  const handleForceReload = async () => {
+    if (syncSettings.googleSheetUrl && syncSettings.googleSheetUrl.trim().length > 0) {
+      await loadDataFromSource(true);
+      addNotification('Muat Ulang Data Terkini', 'Data telah diperbarui secara langsung dari Google Spreadsheet.', 'success');
+    } else {
+      const freshCases = StorageService.getCases();
+      const freshBiaya = StorageService.getBiayaProsesRecords();
+      const freshJurnal = StorageService.getJurnalSkumRecords();
+      setCases(freshCases);
+      setBiayaProsesRecords(freshBiaya);
+      setJurnalSkumRecords(freshJurnal);
+      setCacheMeta(StorageService.getCacheMeta());
+      addNotification('Muat Ulang Data Terkini', 'Data memori cache disinkronkan dengan basis data saat ini.', 'success');
+    }
   };
 
   const unreadNotifCount = notifications.filter(n => !n.read).length;
