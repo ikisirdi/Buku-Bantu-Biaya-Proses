@@ -417,7 +417,11 @@ export default function App() {
       createdAt: new Date().toISOString()
     }));
 
-    const totalDeduction = journalItems.reduce((acc, item) => acc + item.amount, 0);
+    // Separate panjar (penerimaan) and expense items
+    const panjarItem = journalItems.find(item => item.kategori === 'Panjar');
+    const panjarAmount = panjarItem ? panjarItem.amount : 0;
+    const expenseItems = journalItems.filter(item => item.kategori !== 'Panjar');
+    const totalExpense = expenseItems.reduce((acc, item) => acc + item.amount, 0);
 
     // Save Jurnal SKUM Records
     const updatedSkum = [...newSkumRecords, ...jurnalSkumRecords];
@@ -425,18 +429,20 @@ export default function App() {
 
     // Save Biaya Proses Records (if ATK present)
     if (newBiayaProsesRecords.length > 0) {
-      const updatedBp = [...biayaProsesRecords, ...newBiayaProsesRecords];
+      const updatedBp = [...newBiayaProsesRecords, ...biayaProsesRecords];
       updateBiayaProsesState(updatedBp);
     }
 
-    // Deduct case balance
+    // Deduct case balance based on Panjar Awal - Total Expense
     let targetUpdatedCase: CaseRecord | undefined;
     const updatedCases = cases.map(c => {
       if (c.id === caseId || c.nomorPerkara === nomorPerkara) {
-        const nextSaldo = Math.max(0, (c.saldoPerkara || 0) - totalDeduction);
+        const effectivePanjar = panjarAmount > 0 ? panjarAmount : (c.panjarAwal || 1000000);
+        const nextSaldo = Math.max(0, effectivePanjar - totalExpense);
         targetUpdatedCase = {
           ...c,
-          pengeluaran: (c.pengeluaran || 0) + totalDeduction,
+          panjarAwal: effectivePanjar,
+          pengeluaran: totalExpense,
           saldoPerkara: nextSaldo,
           updatedAt: new Date().toISOString()
         };
@@ -462,7 +468,7 @@ export default function App() {
 
     addNotification(
       'Eksekusi Jurnal SKUM',
-      `Jurnal biaya SKUM perkara ${nomorPerkara} berhasil dicatatkan ke Buku Jurnal SKUM. Total transaksi: Rp ${totalDeduction.toLocaleString('id-ID')}.`,
+      `Jurnal biaya SKUM perkara ${nomorPerkara} berhasil dicatatkan ke Buku Jurnal SKUM. Total pengeluaran: Rp ${totalExpense.toLocaleString('id-ID')}.`,
       'success',
       nomorPerkara
     );

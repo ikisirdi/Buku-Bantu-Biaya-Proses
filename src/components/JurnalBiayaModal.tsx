@@ -27,6 +27,7 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
 }) => {
   const isLight = theme === 'light';
   const [activeCaseId, setActiveCaseId] = useState<string>('');
+  const [panjarAwalInput, setPanjarAwalInput] = useState<number>(1000000);
   const [tanggalJurnal, setTanggalJurnal] = useState<string>(new Date().toISOString().split('T')[0]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -40,10 +41,13 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
       targetCase = cases[0];
     }
     
-    if (targetCase?.tanggalRegister) {
-      setTanggalJurnal(targetCase.tanggalRegister);
-    } else {
-      setTanggalJurnal(new Date().toISOString().split('T')[0]);
+    if (targetCase) {
+      setPanjarAwalInput(targetCase.panjarAwal || targetCase.saldoPerkara || 1000000);
+      if (targetCase.tanggalRegister) {
+        setTanggalJurnal(targetCase.tanggalRegister);
+      } else {
+        setTanggalJurnal(new Date().toISOString().split('T')[0]);
+      }
     }
     setErrorMessage(null);
   }, [selectedCase, cases, isOpen]);
@@ -106,6 +110,7 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
   const activeFees = getFeeTable(currentCase?.jenisPerkara);
   const totalRincian = activeFees.reduce((acc, f) => acc + f.amount, 0);
   const atkFee = activeFees.find(f => f.kategori === 'ATK')?.amount || 100000;
+  const estimasiSisaSaldo = Math.max(0, panjarAwalInput - totalRincian);
 
   const handleExecute = () => {
     if (!currentCase) {
@@ -113,27 +118,31 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
       return;
     }
 
-    const currentSaldo = currentCase.saldoPerkara || 0;
-
-    // Balance validation requirement
-    if (currentSaldo <= 0) {
-      setErrorMessage(`❌ Eksekusi Ditolak: Perkara ${currentCase.nomorPerkara} tidak memiliki saldo panjar tersisa (Saldo: Rp 0). Jurnal tidak dapat dipotong.`);
+    if (panjarAwalInput <= 0) {
+      setErrorMessage(`❌ Eksekusi Ditolak: Nominal Panjar Awal harus lebih besar dari Rp 0.`);
       return;
     }
 
-    if (currentSaldo < totalRincian) {
-      setErrorMessage(`⚠️ Eksekusi Ditolak: Saldo perkara saat ini (Rp ${currentSaldo.toLocaleString('id-ID')}) KURANG dari total estimasi pengeluaran jurnal (Rp ${totalRincian.toLocaleString('id-ID')}). Silakan minta pihak melakukan Tambah Panjar Perkara (TBT) terlebih dahulu.`);
+    if (panjarAwalInput < totalRincian) {
+      setErrorMessage(`⚠️ Eksekusi Ditolak: Panjar Awal (Rp ${panjarAwalInput.toLocaleString('id-ID')}) KURANG dari total estimasi pengeluaran jurnal (Rp ${totalRincian.toLocaleString('id-ID')}). Silakan sesuaikan panjar awal atau minta pihak melakukan Tambah Panjar Perkara (TBT).`);
       return;
     }
 
     setErrorMessage(null);
-    const itemsToLog = activeFees
-      .filter(f => f.amount > 0)
-      .map(f => ({
-        uraian: `Pencatatan Jurnal: ${f.name}`,
-        amount: f.amount,
-        kategori: f.kategori
-      }));
+    const itemsToLog = [
+      {
+        uraian: `Penerimaan Panjar Awal Perkara (SKUM)`,
+        amount: panjarAwalInput,
+        kategori: 'Panjar' as const
+      },
+      ...activeFees
+        .filter(f => f.amount > 0)
+        .map(f => ({
+          uraian: `Pencatatan Jurnal: ${f.name}`,
+          amount: f.amount,
+          kategori: f.kategori
+        }))
+    ];
 
     onExecuteJurnal(currentCase.id, currentCase.nomorPerkara, itemsToLog, tanggalJurnal);
     onClose();
@@ -160,7 +169,9 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
           th { background-color: #f1f5f9; font-weight: bold; color: #1e293b; }
           .text-right { text-align: right; }
           .text-center { text-align: center; }
-          .total-row { background-color: #e0f2fe; font-weight: bold; font-size: 13px; }
+          .debet-row { background-color: #ecfdf5; font-weight: bold; }
+          .total-row { background-color: #e0f2fe; font-weight: bold; font-size: 12px; }
+          .sisa-row { background-color: #dcfce7; font-weight: bold; font-size: 13px; color: #15803d; }
           .footer { margin-top: 50px; display: flex; justify-content: space-between; font-size: 12px; }
           .signature { text-align: center; width: 220px; }
         </style>
@@ -175,7 +186,8 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
           <strong>Nama Pihak:</strong> ${currentCase.namaPihak}<br/>
           <strong>Jenis Perkara:</strong> ${currentCase.jenisPerkara}<br/>
           <strong>Tanggal Pencatatan Jurnal:</strong> ${tanggalJurnal}<br/>
-          <strong>Saldo Panjar Tersedia:</strong> Rp ${(currentCase.saldoPerkara || 0).toLocaleString('id-ID')}
+          <strong>Setoran Panjar Awal:</strong> Rp ${panjarAwalInput.toLocaleString('id-ID')}<br/>
+          <strong>Estimasi Sisa Saldo SKUM:</strong> Rp ${estimasiSisaSaldo.toLocaleString('id-ID')}
         </div>
         <table>
           <thead>
@@ -187,9 +199,15 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
             </tr>
           </thead>
           <tbody>
+            <tr class="debet-row">
+              <td class="text-center">1</td>
+              <td>Penerimaan Panjar Awal Perkara (SKUM)</td>
+              <td class="text-center">Panjar</td>
+              <td class="text-right">+ Rp ${panjarAwalInput.toLocaleString('id-ID')}</td>
+            </tr>
             ${activeFees.map((f, i) => `
               <tr style="${f.amount === 0 ? 'opacity: 0.4;' : ''}">
-                <td class="text-center">${i + 1}</td>
+                <td class="text-center">${i + 2}</td>
                 <td>${f.name}</td>
                 <td class="text-center">${f.kategori}</td>
                 <td class="text-right">Rp ${f.amount.toLocaleString('id-ID')}</td>
@@ -198,8 +216,16 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
           </tbody>
           <tfoot>
             <tr class="total-row">
-              <th colspan="3" class="text-right">TOTAL ESTIMASI POTONGAN JURNAL:</th>
-              <th class="text-right">Rp ${totalRincian.toLocaleString('id-ID')}</th>
+              <th colspan="3" class="text-right">TOTAL SETORAN PANJAR (DEBET):</th>
+              <th class="text-right">+ Rp ${panjarAwalInput.toLocaleString('id-ID')}</th>
+            </tr>
+            <tr class="total-row">
+              <th colspan="3" class="text-right">TOTAL EXPENSE JURNAL (KREDIT):</th>
+              <th class="text-right">- Rp ${totalRincian.toLocaleString('id-ID')}</th>
+            </tr>
+            <tr class="sisa-row">
+              <th colspan="3" class="text-right">ESTIMASI SISA SALDO SKUM PERKARA:</th>
+              <th class="text-right">Rp ${estimasiSisaSaldo.toLocaleString('id-ID')}</th>
             </tr>
           </tfoot>
         </table>
@@ -267,7 +293,7 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
                       Pencatatan Jurnal Biaya SKUM Perkara
                     </DialogTitle>
                     <p className="text-[11px] opacity-80">
-                      Memotong saldo SKUM dan mencatat jurnal biaya serta pengalihan ATK (Rp 100rb) ke Buku Bantu
+                      Mencatat Panjar Awal (Setoran) & Rincian Pengeluaran Jurnal SKUM agar saldo tidak minus
                     </p>
                   </div>
                 </div>
@@ -302,11 +328,11 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
                   </div>
                 )}
 
-                {/* Case Selector Dropdown & Date Picker */}
+                {/* Case Selector Dropdown, Panjar Awal Input & Date Picker */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="sm:col-span-2">
+                  <div>
                     <label className="block font-bold mb-1.5 text-slate-700 dark:text-slate-300">
-                      Pilih Nomor Perkara Terdaftar:
+                      Pilih Nomor Perkara:
                     </label>
                     <select
                       value={activeCaseId}
@@ -315,8 +341,11 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
                         setActiveCaseId(newCaseId);
                         setErrorMessage(null);
                         const selected = cases.find(c => c.id === newCaseId);
-                        if (selected?.tanggalRegister) {
-                          setTanggalJurnal(selected.tanggalRegister);
+                        if (selected) {
+                          setPanjarAwalInput(selected.panjarAwal || selected.saldoPerkara || 1000000);
+                          if (selected.tanggalRegister) {
+                            setTanggalJurnal(selected.tanggalRegister);
+                          }
                         }
                       }}
                       className={`w-full p-2.5 rounded-xl border font-mono font-bold text-xs ${
@@ -330,11 +359,31 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
                       ) : (
                         cases.map((c) => (
                           <option key={c.id} value={c.id}>
-                            {c.nomorPerkara} — {c.namaPihak} ({c.jenisPerkara}) | Saldo: Rp {(c.saldoPerkara || 0).toLocaleString('id-ID')}
+                            {c.nomorPerkara} — {c.namaPihak} ({c.jenisPerkara})
                           </option>
                         ))
                       )}
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1.5 text-slate-700 dark:text-slate-300">
+                      Nominal Panjar Awal (SKUM):
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 font-bold text-slate-400">Rp</span>
+                      <input
+                        type="number"
+                        value={panjarAwalInput}
+                        onChange={(e) => setPanjarAwalInput(Number(e.target.value) || 0)}
+                        className={`w-full pl-9 pr-3 py-2.5 rounded-xl border font-mono font-bold text-xs ${
+                          isLight 
+                            ? 'bg-slate-50 border-slate-300 text-slate-900' 
+                            : 'bg-slate-800 border-slate-700 text-emerald-400'
+                        }`}
+                        placeholder="1000000"
+                      />
+                    </div>
                   </div>
 
                   <div>
@@ -372,13 +421,9 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500 uppercase font-bold block">Saldo SKUM Saat Ini</span>
-                      <span className={`font-bold text-sm ${
-                        (currentCase.saldoPerkara || 0) < totalRincian 
-                          ? 'text-red-600 dark:text-red-400' 
-                          : 'text-amber-600 dark:text-amber-400'
-                      }`}>
-                        Rp {(currentCase.saldoPerkara || 0).toLocaleString('id-ID')}
+                      <span className="text-[10px] text-slate-500 uppercase font-bold block">Estimasi Sisa Saldo SKUM</span>
+                      <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">
+                        Rp {estimasiSisaSaldo.toLocaleString('id-ID')}
                       </span>
                     </div>
                   </div>
@@ -389,7 +434,7 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
                   <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-2 flex items-center justify-between">
                     <span>📋 Rincian Jurnal Biaya ({currentCase?.jenisPerkara || 'Gugatan'}):</span>
                     <span className="text-emerald-600 font-extrabold text-xs">
-                      Est. Total: Rp {totalRincian.toLocaleString('id-ID')}
+                      Setoran Panjar: Rp {panjarAwalInput.toLocaleString('id-ID')} | Total Pengeluaran: Rp {totalRincian.toLocaleString('id-ID')}
                     </span>
                   </h4>
 
@@ -404,6 +449,26 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                        {/* Panjar Awal Setoran Row (Debet) */}
+                        <tr className="bg-emerald-500/10 dark:bg-emerald-950/40 font-extrabold text-emerald-800 dark:text-emerald-300">
+                          <td className="p-2.5 text-center">📥</td>
+                          <td className="p-2.5">
+                            Penerimaan Panjar Awal Perkara (SKUM)
+                            <span className="ml-2 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold">
+                              Setoran Awal (Debet)
+                            </span>
+                          </td>
+                          <td className="p-2.5">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200">
+                              Panjar
+                            </span>
+                          </td>
+                          <td className="p-2.5 text-right font-mono font-extrabold text-emerald-600 dark:text-emerald-400">
+                            + Rp {panjarAwalInput.toLocaleString('id-ID')}
+                          </td>
+                        </tr>
+
+                        {/* Expense Items Rows */}
                         {activeFees.map((fee, idx) => (
                           <tr key={idx} className={fee.amount > 0 ? (fee.kategori === 'ATK' ? 'bg-amber-50/60 dark:bg-amber-950/20 font-bold' : '') : 'opacity-40'}>
                             <td className="p-2.5 text-center">{idx + 1}</td>
@@ -427,11 +492,25 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
                         ))}
                       </tbody>
                       <tfoot>
-                        <tr className={`border-t font-extrabold text-sm ${
-                          isLight ? 'bg-slate-100 text-slate-900' : 'bg-slate-800 text-emerald-400'
+                        <tr className={`border-t font-bold text-xs ${isLight ? 'bg-slate-50 text-slate-700' : 'bg-slate-800/80 text-slate-300'}`}>
+                          <td colSpan={3} className="p-2.5 text-right">TOTAL SETORAN PANJAR (DEBET):</td>
+                          <td className="p-2.5 text-right font-mono text-emerald-600 dark:text-emerald-400">
+                            + Rp {panjarAwalInput.toLocaleString('id-ID')}
+                          </td>
+                        </tr>
+                        <tr className={`font-bold text-xs ${isLight ? 'bg-slate-50 text-slate-700' : 'bg-slate-800/80 text-slate-300'}`}>
+                          <td colSpan={3} className="p-2.5 text-right">TOTAL PENGELUARAN JURNAL (KREDIT):</td>
+                          <td className="p-2.5 text-right font-mono text-amber-600 dark:text-amber-400">
+                            - Rp {totalRincian.toLocaleString('id-ID')}
+                          </td>
+                        </tr>
+                        <tr className={`border-t-2 font-extrabold text-sm ${
+                          isLight ? 'bg-emerald-100/80 text-emerald-950' : 'bg-emerald-950/60 text-emerald-300'
                         }`}>
-                          <td colSpan={3} className="p-3 text-right">JUMLAH ESTIMASI EXPENSE JURNAL:</td>
-                          <td className="p-3 text-right font-mono">Rp {totalRincian.toLocaleString('id-ID')}</td>
+                          <td colSpan={3} className="p-3 text-right">ESTIMASI SISA SALDO SKUM PERKARA:</td>
+                          <td className="p-3 text-right font-mono text-base">
+                            Rp {estimasiSisaSaldo.toLocaleString('id-ID')}
+                          </td>
                         </tr>
                       </tfoot>
                     </table>
@@ -446,9 +525,10 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
                   <div>
                     <span className="font-bold block">Dampak Eksekusi Jurnal Biaya:</span>
                     <ul className="list-disc list-inside mt-1 space-y-0.5 opacity-90">
-                      <li>Saldo Perkara <strong>{currentCase?.nomorPerkara || '-'}</strong> akan dipotong sebesar total pengeluaran jurnal.</li>
-                      <li>Potongan <strong>Biaya Pemberkasan / ATK (Rp {atkFee.toLocaleString('id-ID')})</strong> otomatis menjadi saldo penerimaan di menu <strong>Buku Bantu Biaya Proses</strong> dengan label nomor perkara tersebut.</li>
-                      <li>Pencatatan jurnal ini akan menggunakan tanggal transaksi: <strong>{tanggalJurnal}</strong>.</li>
+                      <li>Satu baris <strong>Penerimaan Panjar Awal (Rp {panjarAwalInput.toLocaleString('id-ID')})</strong> dicatat terlebih dahulu di Jurnal SKUM agar saldo tidak minus.</li>
+                      <li>Seluruh rincian komponen pengeluaran jurnal (Rp {totalRincian.toLocaleString('id-ID')}) dicatat sebagai kredit.</li>
+                      <li>Potongan <strong>Biaya Pemberkasan / ATK (Rp {atkFee.toLocaleString('id-ID')})</strong> otomatis menjadi penerimaan di menu <strong>Buku Bantu Biaya Proses</strong>.</li>
+                      <li>Sisa saldo perkara <strong>{currentCase?.nomorPerkara || '-'}</strong> menjadi <strong>Rp {estimasiSisaSaldo.toLocaleString('id-ID')}</strong>.</li>
                     </ul>
                   </div>
                 </div>
