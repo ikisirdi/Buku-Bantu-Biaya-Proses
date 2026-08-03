@@ -149,7 +149,7 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
   }, [records, selectedYear]);
 
   // Form states for ATK deduction
-  const [atkCaseNumber, setAtkCaseNumber] = useState<string>(cases[0]?.nomorPerkara || '14/Pdt.G/2026/PA.Pan');
+  const [atkCaseNumber, setAtkCaseNumber] = useState<string>(cases[0]?.nomorPerkara || '');
   const [atkAmount, setAtkAmount] = useState<number>(100000);
   const [atkTanggal, setAtkTanggal] = useState<string>(new Date().toISOString().split('T')[0]);
   const [atkUraian, setAtkUraian] = useState<string>('Pemotongan Panjar ATK Pendaftaran Perkara');
@@ -931,7 +931,14 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
                   <label className="block text-slate-300 font-semibold mb-1">Pilih Nomor Perkara</label>
                   <select
                     value={atkCaseNumber}
-                    onChange={(e) => setAtkCaseNumber(e.target.value)}
+                    onChange={(e) => {
+                      const selectedVal = e.target.value;
+                      setAtkCaseNumber(selectedVal);
+                      const matchingCase = cases.find(c => c.nomorPerkara === selectedVal || c.id === selectedVal);
+                      if (matchingCase?.tanggalRegister) {
+                        setAtkTanggal(matchingCase.tanggalRegister);
+                      }
+                    }}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-xs font-mono font-bold"
                   >
                     {cases.map(c => (

@@ -511,7 +511,7 @@ export default function App() {
       // Create new
       const newRecord: CaseRecord = {
         id: `case-${Date.now()}`,
-        nomorPerkara: formData.nomorPerkara || '1/Pdt.G/2026/PA.Pan',
+        nomorPerkara: formData.nomorPerkara || `${String(cases.length + 1).padStart(2, '0')}/Pdt.G/2026/PA.Pan`,
         namaPihak: formData.namaPihak || 'Pihak Berperkara',
         jenisPerkara: formData.jenisPerkara || 'Cerai Gugat',
         kategoriPerkara: formData.kategoriPerkara || 'Gugatan',

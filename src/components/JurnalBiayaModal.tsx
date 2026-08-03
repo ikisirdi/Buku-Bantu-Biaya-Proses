@@ -31,10 +31,19 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    let targetCase: CaseRecord | undefined;
     if (selectedCase) {
       setActiveCaseId(selectedCase.id);
+      targetCase = selectedCase;
     } else if (cases.length > 0) {
       setActiveCaseId(cases[0].id);
+      targetCase = cases[0];
+    }
+    
+    if (targetCase?.tanggalRegister) {
+      setTanggalJurnal(targetCase.tanggalRegister);
+    } else {
+      setTanggalJurnal(new Date().toISOString().split('T')[0]);
     }
     setErrorMessage(null);
   }, [selectedCase, cases, isOpen]);
@@ -302,8 +311,13 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
                     <select
                       value={activeCaseId}
                       onChange={(e) => {
-                        setActiveCaseId(e.target.value);
+                        const newCaseId = e.target.value;
+                        setActiveCaseId(newCaseId);
                         setErrorMessage(null);
+                        const selected = cases.find(c => c.id === newCaseId);
+                        if (selected?.tanggalRegister) {
+                          setTanggalJurnal(selected.tanggalRegister);
+                        }
                       }}
                       className={`w-full p-2.5 rounded-xl border font-mono font-bold text-xs ${
                         isLight 

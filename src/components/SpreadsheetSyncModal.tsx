@@ -469,12 +469,9 @@ function writeJurnalSkumToSheet(ss, records) {
     }
   };
 
-  // Load sample snippet provided in user request
+  // Load sample header template provided in user request
   const handleLoadUserSample = () => {
-    const sample = `Nomor Perkara,Nama Pihak,Jenis Perkara,Saldo Perkara (Rp)
-1/Pdt.G/2026/PA.Pan,Muhammad Zakaria,Cerai Talak,Rp0
-2/Pdt.G/2026/PA.Pan,Siti Nurhaliza vs Andi Wijaya,Cerai Gugat,Rp125000
-3/Pdt.P/2026/PA.Pan,H. Abdul Rahman & Hj. Maryam,Penetapan Ahli Waris,Rp350000`;
+    const sample = `Nomor Perkara,Nama Pihak,Jenis Perkara,Saldo Perkara (Rp),Kategori,Panjar Awal (Rp),Tanggal Register`;
     setCsvRawText(sample);
   };
 
@@ -717,8 +714,7 @@ function writeJurnalSkumToSheet(ss, records) {
               rows={4}
               value={csvRawText}
               onChange={(e) => setCsvRawText(e.target.value)}
-              placeholder={`Nomor Perkara,Nama Pihak,Jenis Perkara,Saldo Perkara (Rp)
-1/Pdt.G/2026/PA.Pan,Muhammad Zakaria,Cerai Talak,Rp0`}
+              placeholder={`Nomor Perkara,Nama Pihak,Jenis Perkara,Saldo Perkara (Rp),Kategori,Panjar Awal (Rp),Tanggal Register`}
               className={`w-full border rounded-lg px-3 py-2 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
                 isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-slate-900 border-slate-700 text-slate-200'
               }`}
