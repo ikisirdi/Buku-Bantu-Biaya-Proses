@@ -8,15 +8,68 @@ interface CaseFormModalProps {
   onClose: () => void;
   onSave: (record: Partial<CaseRecord>) => void;
   recordToEdit?: CaseRecord;
-  totalCasesCount: number;
+  totalCasesCount?: number;
+  existingCases?: CaseRecord[];
 }
+
+export const generateNextNomorPerkara = (
+  existingCases: CaseRecord[] = [],
+  jenis: JenisPerkara = 'Cerai Gugat',
+  kategori: KategoriPerkara = 'Gugatan'
+): string => {
+  const currentYear = new Date().getFullYear();
+  const isPermohonan =
+    kategori === 'Permohonan' ||
+    jenis === 'Penetapan Ahli Waris' ||
+    jenis === 'Dispensasi Nikah' ||
+    jenis === 'Wali Adhal' ||
+    jenis === 'Hibah' ||
+    jenis === 'Wasiat' ||
+    jenis.toLowerCase().includes('penetapan') ||
+    jenis.toLowerCase().includes('permohonan') ||
+    jenis.toLowerCase().includes('isbat');
+
+  const code = isPermohonan ? 'Pdt.P' : 'Pdt.G';
+
+  let maxSeq = 0;
+
+  if (Array.isArray(existingCases) && existingCases.length > 0) {
+    existingCases.forEach((c) => {
+      if (!c.nomorPerkara) return;
+      const match = c.nomorPerkara.match(/^(\d+)\/([^\/]+)\/(\d{4})/i);
+      if (match) {
+        const seqNum = parseInt(match[1], 10);
+        const caseCode = match[2].trim();
+        const caseYear = parseInt(match[3], 10);
+
+        if (caseCode.toLowerCase() === code.toLowerCase() && caseYear === currentYear) {
+          if (seqNum > maxSeq) {
+            maxSeq = seqNum;
+          }
+        }
+      } else {
+        const simpleMatch = c.nomorPerkara.match(/^(\d+)/);
+        if (simpleMatch && c.nomorPerkara.toLowerCase().includes(code.toLowerCase())) {
+          const seqNum = parseInt(simpleMatch[1], 10);
+          if (seqNum > maxSeq) {
+            maxSeq = seqNum;
+          }
+        }
+      }
+    });
+  }
+
+  const nextSeq = maxSeq + 1;
+  return `${nextSeq}/${code}/${currentYear}/PA.Pan`;
+};
 
 export const CaseFormModal: React.FC<CaseFormModalProps> = ({
   isOpen,
   onClose,
   onSave,
   recordToEdit,
-  totalCasesCount
+  totalCasesCount = 0,
+  existingCases = []
 }) => {
   const [nomorPerkara, setNomorPerkara] = useState<string>('');
   const [namaPihak, setNamaPihak] = useState<string>('');
@@ -53,15 +106,16 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
       setPanitera(recordToEdit.panitera || '');
       setRuangSidang(recordToEdit.ruangSidang || '');
       setCatatan(recordToEdit.catatan || '');
-    } else {
-      // Auto-generate new case number with 2-digit padding format (e.g. 01/Pdt.G/2026/PA.Pan)
-      const nextNum = totalCasesCount + 1;
-      const formattedNum = String(nextNum).padStart(2, '0');
-      const code = jenisPerkara.toLowerCase().includes('penetapan') || jenisPerkara.toLowerCase().includes('permohonan') || jenisPerkara.toLowerCase().includes('dispen') || jenisPerkara.toLowerCase().includes('wali') ? 'Pdt.P' : 'Pdt.G';
-      setNomorPerkara(`${formattedNum}/${code}/2026/PA.Pan`);
+    } else if (isOpen) {
+      // Auto-generate new case number from existing saved cases
+      const defaultJenis: JenisPerkara = 'Cerai Gugat';
+      const defaultKategori: KategoriPerkara = 'Gugatan';
+      const autoNomor = generateNextNomorPerkara(existingCases, defaultJenis, defaultKategori);
+
+      setNomorPerkara(autoNomor);
       setNamaPihak('');
-      setJenisPerkara('Cerai Gugat');
-      setKategoriPerkara('Gugatan');
+      setJenisPerkara(defaultJenis);
+      setKategoriPerkara(defaultKategori);
       setPanjarAwal(690000); // Default SKUM Cerai Gugat / Cerai Talak Rp 690.000
       setPengeluaran(0);
       setSaldoPerkara(690000);
@@ -75,7 +129,7 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
       setRuangSidang('');
       setCatatan('');
     }
-  }, [recordToEdit, isOpen, totalCasesCount]);
+  }, [recordToEdit, isOpen, existingCases]);
 
   // Recalculate Saldo automatically whenever Panjar or Pengeluaran changes
   const handlePanjarChange = (val: number) => {
@@ -91,25 +145,30 @@ export const CaseFormModal: React.FC<CaseFormModalProps> = ({
   // Adjust Kategori automatically based on Jenis Perkara & apply default SKUM
   const handleJenisChange = (newJenis: JenisPerkara) => {
     setJenisPerkara(newJenis);
-    const nextNum = totalCasesCount + 1;
-    const formattedNum = String(nextNum).padStart(2, '0');
 
-    if (newJenis === 'Penetapan Ahli Waris' || newJenis === 'Dispensasi Nikah' || newJenis === 'Wali Adhal' || newJenis === 'Hibah' || newJenis === 'Wasiat') {
-      setKategoriPerkara('Permohonan');
-      if (!recordToEdit) {
-        setNomorPerkara(`${formattedNum}/Pdt.P/2026/PA.Pan`);
-        // Default SKUM Permohonan/Isbat
+    const isPermohonan =
+      newJenis === 'Penetapan Ahli Waris' ||
+      newJenis === 'Dispensasi Nikah' ||
+      newJenis === 'Wali Adhal' ||
+      newJenis === 'Hibah' ||
+      newJenis === 'Wasiat';
+
+    const newKategori: KategoriPerkara = isPermohonan ? 'Permohonan' : 'Gugatan';
+    setKategoriPerkara(newKategori);
+
+    if (!recordToEdit) {
+      const autoNomor = generateNextNomorPerkara(existingCases, newJenis, newKategori);
+      setNomorPerkara(autoNomor);
+
+      if (newKategori === 'Permohonan') {
         const defaultSkum = newJenis === 'Dispensasi Nikah' || newJenis === 'Wali Adhal' ? 160000 : 170000;
         setPanjarAwal(defaultSkum);
+        setPengeluaran(0);
         setSaldoPerkara(defaultSkum);
-      }
-    } else {
-      setKategoriPerkara('Gugatan');
-      if (!recordToEdit) {
-        setNomorPerkara(`${formattedNum}/Pdt.G/2026/PA.Pan`);
-        // Default SKUM Gugatan/CG/CT
+      } else {
         const defaultSkum = 690000;
         setPanjarAwal(defaultSkum);
+        setPengeluaran(0);
         setSaldoPerkara(defaultSkum);
       }
     }

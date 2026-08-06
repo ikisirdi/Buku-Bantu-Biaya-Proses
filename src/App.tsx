@@ -767,6 +767,7 @@ export default function App() {
         onSave={handleSaveCase}
         recordToEdit={editingRecord}
         totalCasesCount={cases.length}
+        existingCases={cases}
       />
 
       <SpreadsheetSyncModal
