@@ -204,6 +204,24 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
   const totalKredit = filteredRecords.reduce((acc, r) => acc + (r.pengeluaran || 0), 0);
   const saldoSkum = totalDebet - totalKredit;
 
+  // Detect records with dual posting (both penerimaan > 0 AND pengeluaran > 0)
+  const doublePostingRecords = useMemo(() => {
+    return records.filter(r => (r.penerimaan || 0) > 0 && (r.pengeluaran || 0) > 0);
+  }, [records]);
+
+  const handleFixDoublePosting = () => {
+    if (doublePostingRecords.length === 0) return;
+    doublePostingRecords.forEach(r => {
+      const isDebet = r.kategori === 'Panjar' || (r.uraian && r.uraian.toLowerCase().includes('panjar')) || r.penerimaan >= r.pengeluaran;
+      onUpdateRecord({
+        ...r,
+        penerimaan: isDebet ? (r.penerimaan || r.pengeluaran) : 0,
+        pengeluaran: isDebet ? 0 : (r.pengeluaran || r.penerimaan)
+      });
+    });
+    alert(`Berhasil memperbarui ${doublePostingRecords.length} transaksi agar posting Debet dan Kredit tidak ganda/terisi bersamaan.`);
+  };
+
   const handleSubmitManual = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formNomorPerkara || !formUraian || formNominal <= 0) {
@@ -466,6 +484,41 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
         </div>
 
       </div>
+
+      {/* Warning Banners for Discrepancies & Deficit */}
+      {doublePostingRecords.length > 0 && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 text-amber-900 dark:text-amber-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-md">
+          <div className="flex items-start space-x-3">
+            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-extrabold text-xs uppercase tracking-wide flex items-center gap-1.5">
+                <span>⚠️ PERINGATAN POSTING GANDA: TERDETEKSI {doublePostingRecords.length} TRANSAKSI SELISIH</span>
+              </h4>
+              <p className="text-xs mt-1 opacity-90 leading-relaxed">
+                Terdapat data log SKUM yang terisi di kolom <strong>Debet (Penerimaan)</strong> dan <strong>Kredit (Pengeluaran)</strong> secara bersamaan. Hal ini menyebabkan total di akhir berbeda/tidak seimbang.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleFixDoublePosting}
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs whitespace-nowrap shadow-sm transition-all active:scale-95"
+          >
+            ⚡ Perbaiki Otomatis ({doublePostingRecords.length} Data)
+          </button>
+        </div>
+      )}
+
+      {saldoSkum < 0 && (
+        <div className="p-4 rounded-2xl bg-rose-500/10 border-2 border-rose-500/30 text-rose-900 dark:text-rose-200 flex items-center space-x-3 shadow-md">
+          <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0" />
+          <div>
+            <h4 className="font-extrabold text-xs uppercase tracking-wide">⚠️ PERINGATAN DEFISIT SALDO JURNAL SKUM</h4>
+            <p className="text-xs mt-0.5 opacity-90">
+              Total pengeluaran (Rp {totalKredit.toLocaleString('id-ID')}) melebihi total penerimaan (Rp {totalDebet.toLocaleString('id-ID')}). Terdapat defisit saldo sebesar <strong className="font-black underline">Rp {Math.abs(saldoSkum).toLocaleString('id-ID')}</strong>.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Filter & Search Bar */}
       <div className={`p-4 rounded-2xl border flex flex-col md:flex-row items-center justify-between gap-3 ${

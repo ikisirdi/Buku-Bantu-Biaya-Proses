@@ -262,9 +262,26 @@ export class SyncService {
           };
         });
 
+        const mappedJurnal: JurnalBiayaSkumRecord[] = rawJurnal.map((j, idx) => {
+          const pen = Number(j.penerimaan) || 0;
+          const peng = Number(j.pengeluaran) || 0;
+          const isDebet = j.kategori === 'Panjar' || (j.uraian && String(j.uraian).toLowerCase().includes('panjar')) || pen > 0;
+          return {
+            id: String(j.id || `skum-${idx + 1}`),
+            tanggal: String(j.tanggal || new Date().toISOString().split('T')[0]),
+            nomorPerkara: String(j.nomorPerkara || '-'),
+            uraian: String(j.uraian || ''),
+            penerimaan: isDebet ? (pen || peng) : 0,
+            pengeluaran: isDebet ? 0 : peng,
+            kategori: String(j.kategori || (isDebet ? 'Panjar' : 'Panggilan')) as any,
+            keterangan: String(j.keterangan || ''),
+            createdAt: String(j.createdAt || new Date().toISOString())
+          };
+        });
+
         return {
           cases: mappedCases,
-          jurnalSkum: rawJurnal,
+          jurnalSkum: mappedJurnal,
           biayaProses: rawBiaya
         };
       }

@@ -6,7 +6,8 @@ import {
   SyncSettings, 
   CacheMetadata,
   BiayaProsesRecord,
-  JurnalBiayaSkumRecord
+  JurnalBiayaSkumRecord,
+  StatusPerkara
 } from './types';
 import { StorageService, TARGET_APPS_SCRIPT_URL } from './services/storage';
 import { SyncService } from './services/syncService';
@@ -60,17 +61,23 @@ export default function App() {
   const [isJurnalModalOpen, setIsJurnalModalOpen] = useState(false);
   const [jurnalSelectedCase, setJurnalSelectedCase] = useState<CaseRecord | null>(null);
 
-  // Helper to recalculate case balances whenever SKUM records change
+  // Helper to recalculate case balances & auto-status whenever SKUM records change
   const updateCasesWithSkumLogs = (
     currentCases: CaseRecord[],
     skumList: JurnalBiayaSkumRecord[]
   ): CaseRecord[] => {
     return currentCases.map(c => {
-      if (!c.nomorPerkara) return c;
-      const normCaseNum = c.nomorPerkara.trim().toLowerCase();
-      const caseSkumLogs = skumList.filter(r => r.nomorPerkara && r.nomorPerkara.trim().toLowerCase() === normCaseNum);
+      let caseSkumLogs: JurnalBiayaSkumRecord[] = [];
+      if (c.nomorPerkara) {
+        const normCaseNum = c.nomorPerkara.trim().toLowerCase();
+        caseSkumLogs = skumList.filter(r => r.nomorPerkara && r.nomorPerkara.trim().toLowerCase() === normCaseNum);
+      }
 
       if (caseSkumLogs.length === 0) {
+        // If case has 0 balance even without logs, set status to Selesai
+        if (c.saldoPerkara === 0 && c.status !== 'Selesai' && c.status !== 'Arsip') {
+          return { ...c, status: 'Selesai', updatedAt: new Date().toISOString() };
+        }
         return c;
       }
 
@@ -91,11 +98,57 @@ export default function App() {
 
       const newSaldo = Math.max(0, effectivePanjar - totalPengeluaran);
 
+      // Derive auto-status based on logs and balance
+      let newStatus: StatusPerkara = c.status || 'Pendaftaran';
+
+      const hasSisaPanjarLog = caseSkumLogs.some(r =>
+        r.kategori === 'Sisa Panjar' ||
+        (r.uraian && r.uraian.toLowerCase().includes('sisa panjar'))
+      );
+
+      const hasMinutasiLog = caseSkumLogs.some(r =>
+        r.uraian && (r.uraian.toLowerCase().includes('minutasi') || r.uraian.toLowerCase().includes('arsip'))
+      );
+
+      const hasPutusanLog = caseSkumLogs.some(r =>
+        r.uraian && (
+          r.uraian.toLowerCase().includes('putusan') ||
+          r.uraian.toLowerCase().includes('pemberitahuan putusan') ||
+          r.uraian.toLowerCase().includes('akta cerai') ||
+          r.uraian.toLowerCase().includes('ikrar talak')
+        )
+      );
+
+      const hasActivityLog = caseSkumLogs.some(r =>
+        r.kategori === 'Panggilan' ||
+        r.kategori === 'ATK' ||
+        r.kategori === 'Proses' ||
+        (r.uraian && (
+          r.uraian.toLowerCase().includes('panggilan') ||
+          r.uraian.toLowerCase().includes('relaas') ||
+          r.uraian.toLowerCase().includes('pemberkasan')
+        ))
+      );
+
+      if (newSaldo === 0 || hasSisaPanjarLog) {
+        // Balance is 0 or sisa panjar returned -> Selesai
+        newStatus = 'Selesai';
+      } else if (hasMinutasiLog) {
+        newStatus = 'Minutasi';
+      } else if (hasPutusanLog || c.tanggalPutus) {
+        newStatus = 'Putus';
+      } else if (hasActivityLog || totalPengeluaran > 0) {
+        if (c.status === 'Pendaftaran') {
+          newStatus = 'Diperiksa';
+        }
+      }
+
       return {
         ...c,
         panjarAwal: effectivePanjar,
         pengeluaran: totalPengeluaran,
         saldoPerkara: newSaldo,
+        status: newStatus,
         updatedAt: new Date().toISOString()
       };
     });
@@ -374,8 +427,16 @@ export default function App() {
 
   // Handlers for Jurnal Biaya SKUM
   const handleAddJurnalSkumRecord = (record: Omit<JurnalBiayaSkumRecord, 'id' | 'createdAt'>) => {
-    const newRecord: JurnalBiayaSkumRecord = {
+    // Ensure penerimaan & pengeluaran are mutually exclusive
+    const isDebet = record.penerimaan > 0 || record.kategori === 'Panjar';
+    const cleanRecord = {
       ...record,
+      penerimaan: isDebet ? (record.penerimaan || record.pengeluaran || 0) : 0,
+      pengeluaran: isDebet ? 0 : (record.pengeluaran || 0)
+    };
+
+    const newRecord: JurnalBiayaSkumRecord = {
+      ...cleanRecord,
       id: `skum-${Date.now()}`,
       createdAt: new Date().toISOString()
     };
@@ -404,7 +465,14 @@ export default function App() {
   };
 
   const handleUpdateJurnalSkumRecord = (updatedRecord: JurnalBiayaSkumRecord) => {
-    const updatedSkum = jurnalSkumRecords.map(r => r.id === updatedRecord.id ? updatedRecord : r);
+    const isDebet = updatedRecord.penerimaan > 0 || updatedRecord.kategori === 'Panjar';
+    const cleanRecord: JurnalBiayaSkumRecord = {
+      ...updatedRecord,
+      penerimaan: isDebet ? (updatedRecord.penerimaan || updatedRecord.pengeluaran || 0) : 0,
+      pengeluaran: isDebet ? 0 : (updatedRecord.pengeluaran || 0)
+    };
+
+    const updatedSkum = jurnalSkumRecords.map(r => r.id === cleanRecord.id ? cleanRecord : r);
     updateJurnalSkumState(updatedSkum);
 
     // Reupdate cases state based on updated SKUM logs
