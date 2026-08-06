@@ -60,6 +60,47 @@ export default function App() {
   const [isJurnalModalOpen, setIsJurnalModalOpen] = useState(false);
   const [jurnalSelectedCase, setJurnalSelectedCase] = useState<CaseRecord | null>(null);
 
+  // Helper to recalculate case balances whenever SKUM records change
+  const updateCasesWithSkumLogs = (
+    currentCases: CaseRecord[],
+    skumList: JurnalBiayaSkumRecord[]
+  ): CaseRecord[] => {
+    return currentCases.map(c => {
+      if (!c.nomorPerkara) return c;
+      const normCaseNum = c.nomorPerkara.trim().toLowerCase();
+      const caseSkumLogs = skumList.filter(r => r.nomorPerkara && r.nomorPerkara.trim().toLowerCase() === normCaseNum);
+
+      if (caseSkumLogs.length === 0) {
+        return c;
+      }
+
+      const totalPenerimaan = caseSkumLogs.reduce((sum, r) => sum + (Number(r.penerimaan) || 0), 0);
+      const totalPengeluaran = caseSkumLogs.reduce((sum, r) => sum + (Number(r.pengeluaran) || 0), 0);
+
+      const hasPanjarAwalLog = caseSkumLogs.some(r =>
+        r.kategori === 'Panjar' ||
+        (r.uraian && r.uraian.toLowerCase().includes('panjar awal'))
+      );
+
+      let effectivePanjar = c.panjarAwal || 0;
+      if (hasPanjarAwalLog) {
+        effectivePanjar = totalPenerimaan;
+      } else if (totalPenerimaan > 0) {
+        effectivePanjar = Math.max(c.panjarAwal || 0, (c.panjarAwal || 0) + totalPenerimaan);
+      }
+
+      const newSaldo = Math.max(0, effectivePanjar - totalPengeluaran);
+
+      return {
+        ...c,
+        panjarAwal: effectivePanjar,
+        pengeluaran: totalPengeluaran,
+        saldoPerkara: newSaldo,
+        updatedAt: new Date().toISOString()
+      };
+    });
+  };
+
   // Load Initial Data from Storage / Cache & merge with fresh public data / Google Sheet
   const loadDataFromSource = useCallback(async (isForceSpreadsheetOverwrite = false) => {
     const loadedCases = StorageService.getCases();
@@ -68,7 +109,9 @@ export default function App() {
     const loadedNotifs = StorageService.getNotifications();
     const currentSyncSettings = StorageService.getSyncSettings();
 
-    setCases(loadedCases);
+    const syncedLoadedCases = updateCasesWithSkumLogs(loadedCases, loadedJurnalSkum);
+
+    setCases(syncedLoadedCases);
     setBiayaProsesRecords(loadedBiayaProses);
     setJurnalSkumRecords(loadedJurnalSkum);
     setNotifications(loadedNotifs);
@@ -83,8 +126,12 @@ export default function App() {
         if (targetUrl.includes('script.google.com')) {
           const appsScriptData = await SyncService.fetchFromAppsScript(targetUrl);
           if (appsScriptData && appsScriptData.cases.length > 0) {
-            setCases(appsScriptData.cases);
-            StorageService.saveCases(appsScriptData.cases);
+            let fetchedCases = appsScriptData.cases;
+            if (appsScriptData.jurnalSkum && appsScriptData.jurnalSkum.length > 0) {
+              fetchedCases = updateCasesWithSkumLogs(fetchedCases, appsScriptData.jurnalSkum);
+            }
+            setCases(fetchedCases);
+            StorageService.saveCases(fetchedCases);
 
             if (appsScriptData.biayaProses.length > 0) {
               setBiayaProsesRecords(appsScriptData.biayaProses);
@@ -101,8 +148,9 @@ export default function App() {
         } else {
           const casesData = await SyncService.fetchGoogleSheetCsv(targetUrl);
           if (Array.isArray(casesData) && casesData.length > 0) {
-            setCases(casesData);
-            StorageService.saveCases(casesData);
+            const syncedCsvCases = updateCasesWithSkumLogs(casesData, loadedJurnalSkum);
+            setCases(syncedCsvCases);
+            StorageService.saveCases(syncedCsvCases);
           }
 
           const logData = await SyncService.fetchGoogleSheetBiayaProsesCsv(targetUrl);
@@ -331,12 +379,20 @@ export default function App() {
       id: `skum-${Date.now()}`,
       createdAt: new Date().toISOString()
     };
-    const updated = [newRecord, ...jurnalSkumRecords];
-    updateJurnalSkumState(updated);
+    const updatedSkum = [newRecord, ...jurnalSkumRecords];
+    updateJurnalSkumState(updatedSkum);
+
+    // Reupdate cases state based on updated SKUM logs
+    const updatedCases = updateCasesWithSkumLogs(cases, updatedSkum);
+    updateCasesState(updatedCases);
 
     const webhook = getWebhookUrl(syncSettings);
     if (webhook) {
       SyncService.postToWebhook(webhook, 'add_jurnal_skum', newRecord);
+      const targetCase = updatedCases.find(c => c.nomorPerkara && c.nomorPerkara.trim().toLowerCase() === newRecord.nomorPerkara.trim().toLowerCase());
+      if (targetCase) {
+        SyncService.postToWebhook(webhook, 'update_case', targetCase);
+      }
     }
 
     addNotification(
@@ -348,16 +404,20 @@ export default function App() {
   };
 
   const handleUpdateJurnalSkumRecord = (updatedRecord: JurnalBiayaSkumRecord) => {
-    const updated = jurnalSkumRecords.map(r => r.id === updatedRecord.id ? updatedRecord : r);
-    updateJurnalSkumState(updated);
+    const updatedSkum = jurnalSkumRecords.map(r => r.id === updatedRecord.id ? updatedRecord : r);
+    updateJurnalSkumState(updatedSkum);
+
+    // Reupdate cases state based on updated SKUM logs
+    const updatedCases = updateCasesWithSkumLogs(cases, updatedSkum);
+    updateCasesState(updatedCases);
 
     const webhook = getWebhookUrl(syncSettings);
     if (webhook) {
       SyncService.postToWebhook(webhook, 'update_jurnal_skum', updatedRecord);
       SyncService.postToWebhook(webhook, 'sync_all', {
-        cases: cases,
+        cases: updatedCases,
         biayaProses: biayaProsesRecords,
-        jurnalSkum: updated
+        jurnalSkum: updatedSkum
       });
     }
 
@@ -371,15 +431,19 @@ export default function App() {
 
   const handleDeleteJurnalSkumRecord = (id: string) => {
     const target = jurnalSkumRecords.find(r => r.id === id);
-    const updated = jurnalSkumRecords.filter(r => r.id !== id);
-    updateJurnalSkumState(updated);
+    const updatedSkum = jurnalSkumRecords.filter(r => r.id !== id);
+    updateJurnalSkumState(updatedSkum);
+
+    // Reupdate cases state based on updated SKUM logs
+    const updatedCases = updateCasesWithSkumLogs(cases, updatedSkum);
+    updateCasesState(updatedCases);
 
     const webhook = getWebhookUrl(syncSettings);
     if (webhook) {
       SyncService.postToWebhook(webhook, 'sync_all', {
-        cases: cases,
+        cases: updatedCases,
         biayaProses: biayaProsesRecords,
-        jurnalSkum: updated
+        jurnalSkum: updatedSkum
       });
       if (target) {
         SyncService.postToWebhook(webhook, 'delete_jurnal_skum', target);
@@ -425,9 +489,6 @@ export default function App() {
       createdAt: new Date().toISOString()
     }));
 
-    // Separate panjar (penerimaan) and expense items
-    const panjarItem = journalItems.find(item => item.kategori === 'Panjar');
-    const panjarAmount = panjarItem ? panjarItem.amount : 0;
     const expenseItems = journalItems.filter(item => item.kategori !== 'Panjar');
     const totalExpense = expenseItems.reduce((acc, item) => acc + item.amount, 0);
 
@@ -441,24 +502,11 @@ export default function App() {
       updateBiayaProsesState(updatedBp);
     }
 
-    // Deduct case balance based on Panjar Awal - Total Expense
-    let targetUpdatedCase: CaseRecord | undefined;
-    const updatedCases = cases.map(c => {
-      if (c.id === caseId || c.nomorPerkara === nomorPerkara) {
-        const effectivePanjar = panjarAmount > 0 ? panjarAmount : (c.panjarAwal || 1000000);
-        const nextSaldo = Math.max(0, effectivePanjar - totalExpense);
-        targetUpdatedCase = {
-          ...c,
-          panjarAwal: effectivePanjar,
-          pengeluaran: totalExpense,
-          saldoPerkara: nextSaldo,
-          updatedAt: new Date().toISOString()
-        };
-        return targetUpdatedCase;
-      }
-      return c;
-    });
+    // Deduct/update case balance dynamically based on SKUM logs
+    const updatedCases = updateCasesWithSkumLogs(cases, updatedSkum);
     updateCasesState(updatedCases);
+
+    const targetUpdatedCase = updatedCases.find(c => c.id === caseId || (c.nomorPerkara && c.nomorPerkara.trim().toLowerCase() === nomorPerkara.trim().toLowerCase()));
 
     // Webhook push
     const webhook = getWebhookUrl(syncSettings);
