@@ -135,13 +135,11 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
         amount: panjarAwalInput,
         kategori: 'Panjar' as const
       },
-      ...activeFees
-        .filter(f => f.amount > 0)
-        .map(f => ({
-          uraian: `Pencatatan Jurnal: ${f.name}`,
-          amount: f.amount,
-          kategori: f.kategori
-        }))
+      ...activeFees.map(f => ({
+        uraian: `Pencatatan Jurnal: ${f.name}`,
+        amount: f.amount,
+        kategori: f.kategori
+      }))
     ];
 
     onExecuteJurnal(currentCase.id, currentCase.nomorPerkara, itemsToLog, tanggalJurnal);

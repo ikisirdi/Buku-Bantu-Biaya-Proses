@@ -108,7 +108,7 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
 
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingRecord || !editNomorPerkara || !editUraian || editNominal <= 0) {
+    if (!editingRecord || !editNomorPerkara || !editUraian || editNominal < 0) {
       alert('Mohon isi nomor perkara, uraian, dan nominal transaksi.');
       return;
     }
@@ -224,7 +224,7 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
 
   const handleSubmitManual = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formNomorPerkara || !formUraian || formNominal <= 0) {
+    if (!formNomorPerkara || !formUraian || formNominal < 0) {
       alert('Mohon lengkapi nomor perkara, uraian, dan nominal transaksi.');
       return;
     }
@@ -800,7 +800,7 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
                   <label className="block font-bold mb-1">Nominal (Rp):</label>
                   <input
                     type="number"
-                    value={formNominal || ''}
+                    value={formNominal !== undefined && formNominal !== null ? formNominal : ''}
                     onChange={(e) => setFormNominal(Number(e.target.value))}
                     className={`w-full p-2.5 rounded-xl border font-mono font-bold ${
                       isLight ? 'bg-slate-50 border-slate-300' : 'bg-slate-800 border-slate-700'
@@ -950,7 +950,7 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
                   <label className="block font-bold mb-1">Nominal (Rp):</label>
                   <input
                     type="number"
-                    value={editNominal || ''}
+                    value={editNominal !== undefined && editNominal !== null ? editNominal : ''}
                     onChange={(e) => setEditNominal(Number(e.target.value))}
                     className={`w-full p-2.5 rounded-xl border font-mono font-bold ${
                       isLight ? 'bg-slate-50 border-slate-300' : 'bg-slate-800 border-slate-700'
