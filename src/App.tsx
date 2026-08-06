@@ -22,6 +22,7 @@ import { GitHubWorkflowModal } from './components/GitHubWorkflowModal';
 import { CacheManagerModal } from './components/CacheManagerModal';
 import { CaseDetailModal } from './components/CaseDetailModal';
 import { JurnalBiayaModal } from './components/JurnalBiayaModal';
+import { ToastNotification } from './components/ToastNotification';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'table' | 'buku-biaya-proses' | 'jurnal-skum'>('buku-biaya-proses');
@@ -60,6 +61,20 @@ export default function App() {
   const [selectedCaseDetail, setSelectedCaseDetail] = useState<CaseRecord | null>(null);
   const [isJurnalModalOpen, setIsJurnalModalOpen] = useState(false);
   const [jurnalSelectedCase, setJurnalSelectedCase] = useState<CaseRecord | null>(null);
+  const [activeToast, setActiveToast] = useState<NotificationItem | null>(null);
+
+  // Helper to ensure case IDs are unique
+  const ensureUniqueCaseIds = (caseList: CaseRecord[]): CaseRecord[] => {
+    const seen = new Set<string>();
+    return caseList.map((c, idx) => {
+      let id = c.id;
+      if (!id || seen.has(id)) {
+        id = `case-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`;
+      }
+      seen.add(id);
+      return { ...c, id };
+    });
+  };
 
   // Helper to recalculate case balances & auto-status whenever SKUM records change
   const updateCasesWithSkumLogs = (
@@ -162,7 +177,7 @@ export default function App() {
     const loadedNotifs = StorageService.getNotifications();
     const currentSyncSettings = StorageService.getSyncSettings();
 
-    const syncedLoadedCases = updateCasesWithSkumLogs(loadedCases, loadedJurnalSkum);
+    const syncedLoadedCases = ensureUniqueCaseIds(updateCasesWithSkumLogs(loadedCases, loadedJurnalSkum));
 
     setCases(syncedLoadedCases);
     setBiayaProsesRecords(loadedBiayaProses);
@@ -183,8 +198,9 @@ export default function App() {
             if (appsScriptData.jurnalSkum && appsScriptData.jurnalSkum.length > 0) {
               fetchedCases = updateCasesWithSkumLogs(fetchedCases, appsScriptData.jurnalSkum);
             }
-            setCases(fetchedCases);
-            StorageService.saveCases(fetchedCases);
+            const uniqueFetched = ensureUniqueCaseIds(fetchedCases);
+            setCases(uniqueFetched);
+            StorageService.saveCases(uniqueFetched);
 
             if (appsScriptData.biayaProses.length > 0) {
               setBiayaProsesRecords(appsScriptData.biayaProses);
@@ -201,7 +217,7 @@ export default function App() {
         } else {
           const casesData = await SyncService.fetchGoogleSheetCsv(targetUrl);
           if (Array.isArray(casesData) && casesData.length > 0) {
-            const syncedCsvCases = updateCasesWithSkumLogs(casesData, loadedJurnalSkum);
+            const syncedCsvCases = ensureUniqueCaseIds(updateCasesWithSkumLogs(casesData, loadedJurnalSkum));
             setCases(syncedCsvCases);
             StorageService.saveCases(syncedCsvCases);
           }
@@ -224,8 +240,9 @@ export default function App() {
 
   // Sync state changes to storage
   const updateCasesState = useCallback((newCases: CaseRecord[]) => {
-    setCases(newCases);
-    StorageService.saveCases(newCases);
+    const uniqueCases = ensureUniqueCaseIds(newCases);
+    setCases(uniqueCases);
+    StorageService.saveCases(uniqueCases);
     setCacheMeta(StorageService.getCacheMeta());
   }, []);
 
@@ -254,6 +271,7 @@ export default function App() {
       StorageService.saveNotifications(updated);
       return updated;
     });
+    setActiveToast(newNotif);
   }, []);
 
   const getWebhookUrl = (settings: SyncSettings): string | undefined => {
@@ -290,35 +308,50 @@ export default function App() {
   };
 
   const handleUpdateBiayaProsesRecord = (record: BiayaProsesRecord) => {
-    const updated = biayaProsesRecords.map(r => r.id === record.id ? record : r);
-    updateBiayaProsesState(updated);
+    try {
+      const updated = biayaProsesRecords.map(r => r.id === record.id ? record : r);
+      updateBiayaProsesState(updated);
 
-    const webhook = getWebhookUrl(syncSettings);
-    if (webhook) {
-      SyncService.postToWebhook(webhook, 'update_biaya_proses', record);
+      const webhook = getWebhookUrl(syncSettings);
+      if (webhook) {
+        SyncService.postToWebhook(webhook, 'update_biaya_proses', record);
+      }
+
+      addNotification(
+        'Log Transaksi Berhasil Diperbarui',
+        `Log transaksi ${record.uraian} berhasil diperbarui.`,
+        'info',
+        record.nomorPerkara !== '-' ? record.nomorPerkara : undefined
+      );
+    } catch (err: any) {
+      addNotification('Gagal Memperbarui Transaksi', err?.message || 'Terjadi kesalahan saat memperbarui log transaksi.', 'alert');
     }
-
-    addNotification('Log Transaksi Diperbarui', `Log transaksi ${record.uraian} berhasil diperbarui.`, 'info');
   };
 
   const handleDeleteBiayaProsesRecord = (id: string) => {
-    const target = biayaProsesRecords.find(r => r.id === id);
-    const updated = biayaProsesRecords.filter(r => r.id !== id);
-    updateBiayaProsesState(updated);
+    try {
+      const target = biayaProsesRecords.find(r => r.id === id);
+      if (!target) {
+        addNotification('Gagal Menghapus Transaksi', 'Data log transaksi tidak ditemukan.', 'alert');
+        return;
+      }
+      const updated = biayaProsesRecords.filter(r => r.id !== id);
+      updateBiayaProsesState(updated);
 
-    const webhook = getWebhookUrl(syncSettings);
-    if (webhook) {
-      SyncService.postToWebhook(webhook, 'sync_all', {
-        cases: cases,
-        biayaProses: updated,
-        jurnalSkum: jurnalSkumRecords
-      });
-      if (target) {
+      const webhook = getWebhookUrl(syncSettings);
+      if (webhook) {
         SyncService.postToWebhook(webhook, 'delete_biaya_proses', target);
       }
-    }
 
-    addNotification('Log Transaksi Dihapus', 'Satu log transaksi telah dihapus dari Buku Bantu Biaya Proses.', 'warning');
+      addNotification(
+        'Log Transaksi Berhasil Dihapus',
+        `Satu log transaksi (${target.uraian}) telah berhasil dihapus.`,
+        'warning',
+        target.nomorPerkara !== '-' ? target.nomorPerkara : undefined
+      );
+    } catch (err: any) {
+      addNotification('Gagal Menghapus Transaksi', err?.message || 'Terjadi kesalahan saat menghapus log transaksi.', 'alert');
+    }
   };
 
   const handlePotongAtkPerkara = (nomorPerkara: string, amount: number, uraian: string, tanggal: string) => {
@@ -465,60 +498,73 @@ export default function App() {
   };
 
   const handleUpdateJurnalSkumRecord = (updatedRecord: JurnalBiayaSkumRecord) => {
-    const isDebet = updatedRecord.penerimaan > 0 || updatedRecord.kategori === 'Panjar';
-    const cleanRecord: JurnalBiayaSkumRecord = {
-      ...updatedRecord,
-      penerimaan: isDebet ? (updatedRecord.penerimaan || updatedRecord.pengeluaran || 0) : 0,
-      pengeluaran: isDebet ? 0 : (updatedRecord.pengeluaran || 0)
-    };
+    try {
+      const isDebet = updatedRecord.penerimaan > 0 || updatedRecord.kategori === 'Panjar';
+      const cleanRecord: JurnalBiayaSkumRecord = {
+        ...updatedRecord,
+        penerimaan: isDebet ? (updatedRecord.penerimaan || updatedRecord.pengeluaran || 0) : 0,
+        pengeluaran: isDebet ? 0 : (updatedRecord.pengeluaran || 0)
+      };
 
-    const updatedSkum = jurnalSkumRecords.map(r => r.id === cleanRecord.id ? cleanRecord : r);
-    updateJurnalSkumState(updatedSkum);
+      const updatedSkum = jurnalSkumRecords.map(r => r.id === cleanRecord.id ? cleanRecord : r);
+      updateJurnalSkumState(updatedSkum);
 
-    // Reupdate cases state based on updated SKUM logs
-    const updatedCases = updateCasesWithSkumLogs(cases, updatedSkum);
-    updateCasesState(updatedCases);
+      // Reupdate cases state based on updated SKUM logs
+      const updatedCases = updateCasesWithSkumLogs(cases, updatedSkum);
+      updateCasesState(updatedCases);
 
-    const webhook = getWebhookUrl(syncSettings);
-    if (webhook) {
-      SyncService.postToWebhook(webhook, 'update_jurnal_skum', updatedRecord);
-      SyncService.postToWebhook(webhook, 'sync_all', {
-        cases: updatedCases,
-        biayaProses: biayaProsesRecords,
-        jurnalSkum: updatedSkum
-      });
+      const webhook = getWebhookUrl(syncSettings);
+      if (webhook) {
+        SyncService.postToWebhook(webhook, 'update_jurnal_skum', cleanRecord);
+        const targetCase = updatedCases.find(c => c.nomorPerkara && c.nomorPerkara.trim().toLowerCase() === cleanRecord.nomorPerkara.trim().toLowerCase());
+        if (targetCase) {
+          SyncService.postToWebhook(webhook, 'update_case', targetCase);
+        }
+      }
+
+      addNotification(
+        'Log SKUM Berhasil Diperbarui',
+        `Berhasil memperbarui data transaksi SKUM perkara ${cleanRecord.nomorPerkara}: ${cleanRecord.uraian}`,
+        'info',
+        cleanRecord.nomorPerkara
+      );
+    } catch (err: any) {
+      addNotification('Gagal Memperbarui Log SKUM', err?.message || 'Terjadi kesalahan saat memperbarui data SKUM.', 'alert');
     }
-
-    addNotification(
-      'Log SKUM Diperbarui',
-      `Berhasil memperbarui data transaksi SKUM perkara ${updatedRecord.nomorPerkara}`,
-      'info',
-      updatedRecord.nomorPerkara
-    );
   };
 
   const handleDeleteJurnalSkumRecord = (id: string) => {
-    const target = jurnalSkumRecords.find(r => r.id === id);
-    const updatedSkum = jurnalSkumRecords.filter(r => r.id !== id);
-    updateJurnalSkumState(updatedSkum);
-
-    // Reupdate cases state based on updated SKUM logs
-    const updatedCases = updateCasesWithSkumLogs(cases, updatedSkum);
-    updateCasesState(updatedCases);
-
-    const webhook = getWebhookUrl(syncSettings);
-    if (webhook) {
-      SyncService.postToWebhook(webhook, 'sync_all', {
-        cases: updatedCases,
-        biayaProses: biayaProsesRecords,
-        jurnalSkum: updatedSkum
-      });
-      if (target) {
-        SyncService.postToWebhook(webhook, 'delete_jurnal_skum', target);
+    try {
+      const target = jurnalSkumRecords.find(r => r.id === id);
+      if (!target) {
+        addNotification('Gagal Menghapus SKUM', 'Data log SKUM tidak ditemukan.', 'alert');
+        return;
       }
-    }
+      const updatedSkum = jurnalSkumRecords.filter(r => r.id !== id);
+      updateJurnalSkumState(updatedSkum);
 
-    addNotification('Log SKUM Dihapus', 'Satu baris log dihapus dari Jurnal Biaya SKUM.', 'warning');
+      // Reupdate cases state based on updated SKUM logs
+      const updatedCases = updateCasesWithSkumLogs(cases, updatedSkum);
+      updateCasesState(updatedCases);
+
+      const webhook = getWebhookUrl(syncSettings);
+      if (webhook) {
+        SyncService.postToWebhook(webhook, 'delete_jurnal_skum', target);
+        const targetCase = updatedCases.find(c => c.nomorPerkara && c.nomorPerkara.trim().toLowerCase() === target.nomorPerkara.trim().toLowerCase());
+        if (targetCase) {
+          SyncService.postToWebhook(webhook, 'update_case', targetCase);
+        }
+      }
+
+      addNotification(
+        'Log SKUM Berhasil Dihapus',
+        `Data transaksi SKUM perkara ${target.nomorPerkara} (${target.uraian}) telah dihapus.`,
+        'warning',
+        target.nomorPerkara
+      );
+    } catch (err: any) {
+      addNotification('Gagal Menghapus Log SKUM', err?.message || 'Terjadi kesalahan saat menghapus data SKUM.', 'alert');
+    }
   };
 
   // Handle Jurnal SKUM execution per case
@@ -640,7 +686,7 @@ export default function App() {
     } else {
       // Create new
       const newRecord: CaseRecord = {
-        id: `case-${Date.now()}`,
+        id: `case-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         nomorPerkara: formData.nomorPerkara || `${String(cases.length + 1).padStart(2, '0')}/Pdt.G/2026/PA.Pan`,
         namaPihak: formData.namaPihak || 'Pihak Berperkara',
         jenisPerkara: formData.jenisPerkara || 'Cerai Gugat',
@@ -687,28 +733,28 @@ export default function App() {
 
   // Delete Case
   const handleDeleteCase = (id: string) => {
-    const target = cases.find(c => c.id === id);
-    const updated = cases.filter(c => c.id !== id);
-    updateCasesState(updated);
+    try {
+      const target = cases.find(c => c.id === id);
+      if (!target) {
+        addNotification('Gagal Menghapus Perkara', 'Data perkara tidak ditemukan.', 'alert');
+        return;
+      }
+      const updated = cases.filter(c => c.id !== id);
+      updateCasesState(updated);
 
-    const webhook = getWebhookUrl(syncSettings);
-    if (webhook) {
-      SyncService.postToWebhook(webhook, 'sync_all', {
-        cases: updated,
-        biayaProses: biayaProsesRecords,
-        jurnalSkum: jurnalSkumRecords
-      });
-      if (target) {
+      const webhook = getWebhookUrl(syncSettings);
+      if (webhook) {
         SyncService.postToWebhook(webhook, 'delete_case', target);
       }
-    }
 
-    if (target) {
       addNotification(
-        'Perkara Dihapus',
-        `Data perkara ${target.nomorPerkara} telah dihapus dari basis data.`,
-        'warning'
+        'Perkara Berhasil Dihapus',
+        `Data perkara ${target.nomorPerkara} (${target.namaPihak}) telah berhasil dihapus.`,
+        'warning',
+        target.nomorPerkara
       );
+    } catch (err: any) {
+      addNotification('Gagal Menghapus Perkara', err?.message || 'Terjadi kesalahan saat menghapus data perkara.', 'alert');
     }
   };
 
@@ -940,6 +986,15 @@ export default function App() {
         selectedCase={jurnalSelectedCase}
         onExecuteJurnal={handleExecuteJurnal}
         theme={theme}
+      />
+
+      <ToastNotification
+        toast={activeToast}
+        onDismiss={() => setActiveToast(null)}
+        onOpenCenter={() => {
+          setActiveToast(null);
+          setIsNotifOpen(true);
+        }}
       />
 
     </div>

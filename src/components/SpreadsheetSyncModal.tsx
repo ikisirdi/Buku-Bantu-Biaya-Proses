@@ -249,6 +249,10 @@ function doPost(e) {
       }
     } else if (action === 'add_jurnal_skum' || action === 'update_jurnal_skum') {
       var sheet = ss.getSheetByName('JurnalBiayaSKUM') || ss.getSheetByName('JurnalSKUM');
+      if (!sheet) {
+        sheet = ss.insertSheet('JurnalBiayaSKUM');
+        sheet.appendRow(['ID', 'Tanggal', 'Nomor Perkara', 'Uraian', 'Penerimaan / Debet', 'Pengeluaran / Kredit', 'Kategori', 'Keterangan', 'Created At']);
+      }
       var rowValues = [
         record.id || ('skum-' + Date.now()),
         record.tanggal || '',
@@ -264,9 +268,15 @@ function doPost(e) {
       var dataRows = sheet.getDataRange().getValues();
       var rowIndex = -1;
       var targetId = String(record.id || '').trim();
-      if (action === 'update_jurnal_skum' && targetId) {
+      var targetNomor = String(record.nomorPerkara || '').trim().toLowerCase();
+      var targetUraian = String(record.uraian || '').trim().toLowerCase();
+
+      if (dataRows.length > 1) {
         for (var j = 1; j < dataRows.length; j++) {
-          if (String(dataRows[j][0]).trim() === targetId) {
+          var rowId = String(dataRows[j][0] || '').trim();
+          var rowNomor = String(dataRows[j][2] || '').trim().toLowerCase();
+          var rowUraian = String(dataRows[j][3] || '').trim().toLowerCase();
+          if ((targetId && rowId === targetId) || (targetNomor && rowNomor === targetNomor && rowUraian === targetUraian)) {
             rowIndex = j + 1;
             break;
           }
@@ -282,8 +292,14 @@ function doPost(e) {
       var sheet = ss.getSheetByName('JurnalBiayaSKUM') || ss.getSheetByName('JurnalSKUM');
       if (sheet) {
         var dataRows = sheet.getDataRange().getValues();
+        var targetId = String(record.id || '').trim();
+        var targetNomor = String(record.nomorPerkara || '').trim().toLowerCase();
+        var targetUraian = String(record.uraian || '').trim().toLowerCase();
         for (var k = 1; k < dataRows.length; k++) {
-          if (String(dataRows[k][0]) === String(record.id)) {
+          var rowId = String(dataRows[k][0] || '').trim();
+          var rowNomor = String(dataRows[k][2] || '').trim().toLowerCase();
+          var rowUraian = String(dataRows[k][3] || '').trim().toLowerCase();
+          if ((targetId && rowId === targetId) || (targetNomor && rowNomor === targetNomor && rowUraian === targetUraian)) {
             sheet.deleteRow(k + 1);
             break;
           }
@@ -291,6 +307,10 @@ function doPost(e) {
       }
     } else if (action === 'add_biaya_proses' || action === 'update_biaya_proses') {
       var sheet = ss.getSheetByName('BukuBiayaProses') || ss.getSheetByName('LogTransaksi') || ss.getSheetByName('BukuBantu');
+      if (!sheet) {
+        sheet = ss.insertSheet('BukuBiayaProses');
+        sheet.appendRow(['ID', 'Tanggal', 'Nomor Perkara', 'Uraian', 'Penerimaan', 'Pengeluaran', 'Kategori', 'Keterangan', 'Created At']);
+      }
       var rowValues = [
         record.id || ('bp-' + Date.now()),
         record.tanggal || '',
@@ -306,9 +326,15 @@ function doPost(e) {
       var dataRows = sheet.getDataRange().getValues();
       var rowIndex = -1;
       var targetId = String(record.id || '').trim();
-      if (action === 'update_biaya_proses' && targetId) {
+      var targetNomor = String(record.nomorPerkara || '').trim().toLowerCase();
+      var targetUraian = String(record.uraian || '').trim().toLowerCase();
+
+      if (dataRows.length > 1) {
         for (var j = 1; j < dataRows.length; j++) {
-          if (String(dataRows[j][0]).trim() === targetId) {
+          var rowId = String(dataRows[j][0] || '').trim();
+          var rowNomor = String(dataRows[j][2] || '').trim().toLowerCase();
+          var rowUraian = String(dataRows[j][3] || '').trim().toLowerCase();
+          if ((targetId && rowId === targetId) || (targetNomor && rowNomor === targetNomor && rowUraian === targetUraian)) {
             rowIndex = j + 1;
             break;
           }
@@ -324,8 +350,14 @@ function doPost(e) {
       var sheet = ss.getSheetByName('BukuBiayaProses') || ss.getSheetByName('LogTransaksi') || ss.getSheetByName('BukuBantu');
       if (sheet) {
         var dataRows = sheet.getDataRange().getValues();
+        var targetId = String(record.id || '').trim();
+        var targetNomor = String(record.nomorPerkara || '').trim().toLowerCase();
+        var targetUraian = String(record.uraian || '').trim().toLowerCase();
         for (var m = 1; m < dataRows.length; m++) {
-          if (String(dataRows[m][0]) === String(record.id)) {
+          var rowId = String(dataRows[m][0] || '').trim();
+          var rowNomor = String(dataRows[m][2] || '').trim().toLowerCase();
+          var rowUraian = String(dataRows[m][3] || '').trim().toLowerCase();
+          if ((targetId && rowId === targetId) || (targetNomor && rowNomor === targetNomor && rowUraian === targetUraian)) {
             sheet.deleteRow(m + 1);
             break;
           }

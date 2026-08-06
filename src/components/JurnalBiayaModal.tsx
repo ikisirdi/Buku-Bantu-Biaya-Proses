@@ -355,8 +355,8 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
                       {cases.length === 0 ? (
                         <option value="">-- Belum ada data perkara --</option>
                       ) : (
-                        cases.map((c) => (
-                          <option key={c.id} value={c.id}>
+                        cases.map((c, idx) => (
+                          <option key={`${c.id}-${idx}`} value={c.id}>
                             {c.nomorPerkara} — {c.namaPihak} ({c.jenisPerkara})
                           </option>
                         ))

@@ -522,8 +522,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              {filteredCases.slice(0, 5).map(item => (
-                <tr key={item.id} className="hover:bg-slate-800/50 transition-colors">
+              {filteredCases.slice(0, 5).map((item, idx) => (
+                <tr key={`${item.id}-${idx}`} className="hover:bg-slate-800/50 transition-colors">
                   <td className="px-3 py-2.5 font-mono font-medium text-emerald-400">{item.nomorPerkara}</td>
                   <td className="px-3 py-2.5 text-slate-200 font-medium">{item.namaPihak}</td>
                   <td className="px-3 py-2.5 text-slate-300">{item.jenisPerkara}</td>

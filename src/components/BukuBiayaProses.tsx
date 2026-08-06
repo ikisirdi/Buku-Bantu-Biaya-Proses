@@ -558,8 +558,8 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-rose-100 dark:divide-rose-900/40">
-                    {pendingCasesWithBalance.map(c => (
-                      <tr key={c.id} className="hover:bg-rose-50/50 dark:hover:bg-rose-900/20">
+                    {pendingCasesWithBalance.map((c, idx) => (
+                      <tr key={`pending-${c.id}-${idx}`} className="hover:bg-rose-50/50 dark:hover:bg-rose-900/20">
                         <td className="px-3 py-2 font-mono font-bold text-rose-700 dark:text-rose-300">
                           {c.nomorPerkara}
                           <p className="text-[10px] font-normal text-slate-500">{c.namaPihak}</p>
@@ -851,7 +851,7 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
                 </tr>
               ) : (
                 filteredRecords.map((item, idx) => (
-                  <tr key={item.id} className={`transition-colors ${isLight ? 'hover:bg-amber-50/40' : 'hover:bg-slate-800/60'}`}>
+                  <tr key={`${item.id}-${idx}`} className={`transition-colors ${isLight ? 'hover:bg-amber-50/40' : 'hover:bg-slate-800/60'}`}>
                     <td className={`px-3 py-2.5 text-center font-bold ${isLight ? 'text-slate-400' : 'text-slate-400'}`}>{idx + 1}</td>
                     <td className={`px-3 py-2.5 font-mono ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>{formatShortDate(item.tanggal)}</td>
                     <td className="px-3 py-2.5 font-mono font-extrabold text-amber-700">{item.nomorPerkara}</td>
@@ -941,8 +941,8 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
                     }}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-xs font-mono font-bold"
                   >
-                    {cases.map(c => (
-                      <option key={c.id} value={c.nomorPerkara}>
+                    {cases.map((c, idx) => (
+                      <option key={`bp-opt-1-${c.id}-${idx}`} value={c.nomorPerkara}>
                         {c.nomorPerkara} - {c.namaPihak} ({c.jenisPerkara})
                       </option>
                     ))}
@@ -1194,8 +1194,8 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
                     <option value="-">- (Non-Perkara / Transaksi Umum)</option>
                     {cases.length > 0 && (
                       <optgroup label="📋 Dipanggil Otomatis dari Sheet DataPerkara:">
-                        {cases.map((c) => (
-                          <option key={c.id} value={c.nomorPerkara}>
+                        {cases.map((c, idx) => (
+                          <option key={`bp-opt-2-${c.id}-${idx}`} value={c.nomorPerkara}>
                             {c.nomorPerkara} — {c.namaPihak} ({c.jenisPerkara})
                           </option>
                         ))}
@@ -1215,8 +1215,8 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
                     />
                     <datalist id="data-perkara-list">
                       <option value="-" />
-                      {cases.map((c) => (
-                        <option key={c.id} value={c.nomorPerkara}>
+                      {cases.map((c, idx) => (
+                        <option key={`bp-opt-3-${c.id}-${idx}`} value={c.nomorPerkara}>
                           {c.namaPihak} ({c.jenisPerkara})
                         </option>
                       ))}

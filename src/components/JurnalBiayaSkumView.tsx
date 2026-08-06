@@ -640,7 +640,7 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
               ) : (
                 filteredRecords.map((r, idx) => (
                   <tr 
-                    key={r.id} 
+                    key={`${r.id}-${idx}`} 
                     className={`transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
                       r.kategori === 'ATK' ? 'bg-amber-50/40 dark:bg-amber-950/10' : ''
                     }`}
@@ -746,8 +746,8 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
                   required
                 />
                 <datalist id="case-numbers-list">
-                  {cases.map(c => (
-                    <option key={c.id} value={c.nomorPerkara}>{c.namaPihak}</option>
+                  {cases.map((c, idx) => (
+                    <option key={`c-opt-1-${c.id}-${idx}`} value={c.nomorPerkara}>{c.namaPihak}</option>
                   ))}
                 </datalist>
               </div>
@@ -896,8 +896,8 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
                   required
                 />
                 <datalist id="edit-case-numbers-list">
-                  {cases.map(c => (
-                    <option key={c.id} value={c.nomorPerkara}>{c.namaPihak}</option>
+                  {cases.map((c, idx) => (
+                    <option key={`c-opt-2-${c.id}-${idx}`} value={c.nomorPerkara}>{c.namaPihak}</option>
                   ))}
                 </datalist>
               </div>
@@ -1199,8 +1199,8 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                            {selMonthData.records.map(r => (
-                              <tr key={r.id} className={r.pengeluaran > 0 ? 'bg-rose-50/40 dark:bg-rose-950/20' : ''}>
+                            {selMonthData.records.map((r, idx) => (
+                              <tr key={`${r.id}-${idx}`} className={r.pengeluaran > 0 ? 'bg-rose-50/40 dark:bg-rose-950/20' : ''}>
                                 <td className="p-2 font-mono text-slate-600 dark:text-slate-400">{r.tanggal}</td>
                                 <td className="p-2 font-mono font-bold text-sky-700 dark:text-sky-400">{r.nomorPerkara || '-'}</td>
                                 <td className="p-2 font-semibold text-slate-800 dark:text-slate-200">
@@ -1251,8 +1251,8 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                        {cases.filter(c => (c.saldoPerkara || 0) <= 0).map(c => (
-                          <tr key={c.id} className="bg-rose-50/50 dark:bg-rose-950/30">
+                        {cases.filter(c => (c.saldoPerkara || 0) <= 0).map((c, idx) => (
+                          <tr key={`${c.id}-${idx}`} className="bg-rose-50/50 dark:bg-rose-950/30">
                             <td className="p-2 font-mono font-bold text-rose-700 dark:text-rose-400">{c.nomorPerkara}</td>
                             <td className="p-2 font-medium">{c.namaPihak}</td>
                             <td className="p-2">{c.jenisPerkara}</td>

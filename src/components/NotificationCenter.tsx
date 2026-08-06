@@ -142,9 +142,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     <p>Tidak ada notifikasi dalam kategori ini.</p>
                   </div>
                 ) : (
-                  filteredNotifs.map(item => (
+                  filteredNotifs.map((item, idx) => (
                     <div
-                      key={item.id}
+                      key={`${item.id}-${idx}`}
                       onClick={() => onSelectNotification(item)}
                       className={`p-3 rounded-xl border transition-all cursor-pointer ${
                         !item.read

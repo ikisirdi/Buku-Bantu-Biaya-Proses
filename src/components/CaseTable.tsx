@@ -376,8 +376,8 @@ export const CaseTable: React.FC<CaseTableProps> = ({
                 </td>
               </tr>
             ) : (
-              paginatedCases.map((item) => (
-                <tr key={item.id} className={`transition-colors group ${isLight ? 'hover:bg-emerald-50/30' : 'hover:bg-slate-800/60'}`}>
+              paginatedCases.map((item, idx) => (
+                <tr key={`${item.id}-${idx}`} className={`transition-colors group ${isLight ? 'hover:bg-emerald-50/30' : 'hover:bg-slate-800/60'}`}>
                   
                   {/* Nomor Perkara */}
                   <td className="px-4 py-3 font-mono font-extrabold text-emerald-700 whitespace-nowrap">
