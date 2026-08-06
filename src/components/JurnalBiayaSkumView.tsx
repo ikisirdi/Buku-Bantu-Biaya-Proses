@@ -43,9 +43,26 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
 
   // Local Filter & Form States
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterNomorPerkara, setFilterNomorPerkara] = useState<string>('ALL');
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
   const [filterBulan, setFilterBulan] = useState<string>('ALL');
   const [filterTahun, setFilterTahun] = useState<string>(new Date().getFullYear().toString());
+
+  // Available unique case numbers for dropdown filter
+  const availableNomorPerkara = useMemo(() => {
+    const setPerkara = new Set<string>();
+    records.forEach(r => {
+      if (r.nomorPerkara && r.nomorPerkara.trim()) {
+        setPerkara.add(r.nomorPerkara.trim());
+      }
+    });
+    cases.forEach(c => {
+      if (c.nomorPerkara && c.nomorPerkara.trim()) {
+        setPerkara.add(c.nomorPerkara.trim());
+      }
+    });
+    return Array.from(setPerkara).sort();
+  }, [records, cases]);
 
   // Modal Add Manual SKUM
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -134,6 +151,7 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
         if (!r.tanggal) return false;
         const [yr, mo] = r.tanggal.split('-');
         if (filterTahun !== 'ALL' && yr !== filterTahun) return false;
+        if (filterNomorPerkara !== 'ALL' && r.nomorPerkara !== filterNomorPerkara) return false;
         return mo === m.num;
       });
 
@@ -153,7 +171,7 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
         records: monthRecords
       };
     });
-  }, [records, filterTahun]);
+  }, [records, filterTahun, filterNomorPerkara]);
 
   // Filter logic
   const filteredRecords = records.filter(r => {
@@ -162,6 +180,7 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
       r.uraian.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.keterangan.toLowerCase().includes(searchQuery.toLowerCase());
 
+    const matchNomorPerkara = filterNomorPerkara === 'ALL' || r.nomorPerkara === filterNomorPerkara;
     const matchCategory = filterCategory === 'ALL' || r.kategori === filterCategory;
 
     let matchMonthYear = true;
@@ -177,7 +196,7 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
       }
     }
 
-    return matchQuery && matchCategory && matchMonthYear;
+    return matchQuery && matchNomorPerkara && matchCategory && matchMonthYear;
   });
 
   // Calculate totals
@@ -466,6 +485,22 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          {/* Nomor Perkara Filter */}
+          <select
+            value={filterNomorPerkara}
+            onChange={(e) => setFilterNomorPerkara(e.target.value)}
+            className={`px-3 py-2 rounded-xl text-xs border font-semibold ${
+              isLight ? 'bg-slate-50 border-slate-300 text-slate-700' : 'bg-slate-800 border-slate-700 text-slate-200'
+            }`}
+          >
+            <option value="ALL">Semua Nomor Perkara</option>
+            {availableNomorPerkara.map((nomor) => (
+              <option key={nomor} value={nomor}>
+                {nomor}
+              </option>
+            ))}
+          </select>
+
           {/* Kategori Filter */}
           <select
             value={filterCategory}
