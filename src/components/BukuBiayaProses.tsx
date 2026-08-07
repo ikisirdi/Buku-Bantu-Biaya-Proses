@@ -282,6 +282,12 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
 
   const saldoBiayaProses = totalPenerimaan - totalPengeluaran;
 
+  // Check whether there is ATK income entering Buku Bantu for the selected month/period
+  const hasAtkIncomeForMonth = useMemo(() => {
+    const activeRecords = selectedMonth === 'ALL' ? records : filteredRecords;
+    return activeRecords.some(r => (r.penerimaan || 0) > 0);
+  }, [records, filteredRecords, selectedMonth]);
+
   // Cumulative all-time balance up to selected month
   const totalAllTimePenerimaan = useMemo(() => records.reduce((s, r) => s + (r.penerimaan || 0), 0), [records]);
   const totalAllTimePengeluaran = useMemo(() => records.reduce((s, r) => s + (r.pengeluaran || 0), 0), [records]);
@@ -522,31 +528,49 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
       {/* ALERT BANNER: PENGINGAT PERKARA PUTUS/KADALUARSA DENGAN SALDO SISA */}
       {pendingCasesWithBalance.length > 0 && (
         <div className={`border rounded-2xl p-4 sm:p-5 shadow-sm transition-colors ${
-          isLight 
-            ? 'bg-rose-50/90 border-rose-200 text-slate-800' 
-            : 'bg-rose-950/40 border-rose-800/80 text-slate-100'
+          hasAtkIncomeForMonth 
+            ? (isLight ? 'bg-rose-50/90 border-rose-200 text-slate-800' : 'bg-rose-950/40 border-rose-800/80 text-slate-100')
+            : (isLight ? 'bg-slate-100/90 border-slate-300 text-slate-700' : 'bg-slate-900/60 border-slate-800 text-slate-400')
         }`}>
           <div className="flex items-start space-x-3">
-            <div className="p-2.5 rounded-xl bg-rose-600 text-white shadow-md shadow-rose-600/30 flex-shrink-0 mt-0.5">
-              <AlertTriangle className="w-5 h-5 animate-pulse" />
+            <div className={`p-2.5 rounded-xl text-white shadow-md flex-shrink-0 mt-0.5 ${
+              hasAtkIncomeForMonth ? 'bg-rose-600 shadow-rose-600/30' : 'bg-slate-500 shadow-slate-500/20'
+            }`}>
+              <AlertTriangle className={`w-5 h-5 ${hasAtkIncomeForMonth ? 'animate-pulse' : 'opacity-70'}`} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center space-x-2">
-                  <h3 className="font-extrabold text-sm sm:text-base text-rose-700 dark:text-rose-400">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className={`font-extrabold text-sm sm:text-base ${
+                    hasAtkIncomeForMonth ? 'text-rose-700 dark:text-rose-400' : 'text-slate-700 dark:text-slate-300'
+                  }`}>
                     Pengingat Saldo Mengendap ({pendingCasesWithBalance.length} Perkara)
                   </h3>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-200 text-rose-900 border border-rose-300">
-                    Aturan SE/SK MA
-                  </span>
+                  {hasAtkIncomeForMonth ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center space-x-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                      <span>FITUR AKTIF ({selectedMonth})</span>
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                      FITUR NONAKTIF (Pemasukan ATK {selectedMonth}: Rp0)
+                    </span>
+                  )}
                 </div>
               </div>
-              <p className={`text-xs mt-1 leading-relaxed ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
-                Perkara yang sudah <strong>Putus</strong> atau berjalan melebihi batas waktu <strong>(Tingkat Pertama: 5 bulan, Banding: 3 bulan, Kasasi/PK: 3 bulan)</strong> tidak boleh menyisakan saldo biaya proses. Gunakan fitur <strong>⚡ Auto-Zeroing (Saldo Rp0)</strong> untuk langsung mengalokasikan pengeluaran resmi hingga saldo menjadi Rp0.
-              </p>
+
+              {hasAtkIncomeForMonth ? (
+                <p className={`text-xs mt-1 leading-relaxed ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
+                  Perkara yang sudah <strong>Putus</strong> atau berjalan melebihi batas waktu <strong>(Tingkat Pertama: 5 bulan, Banding: 3 bulan, Kasasi/PK: 3 bulan)</strong> tidak boleh menyisakan saldo biaya proses. Gunakan fitur <strong>⚡ Auto-Zeroing (Saldo Rp0)</strong> untuk langsung mengalokasikan pengeluaran resmi hingga saldo menjadi Rp0.
+                </p>
+              ) : (
+                <p className={`text-xs mt-1 leading-relaxed italic ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                  📌 <strong>Fitur Auto-Zeroing Belum Aktif:</strong> Belum ada pemasukan Biaya Pemberkasan / ATK yang masuk ke Saldo Kas Buku Bantu pada bulan <strong>{selectedMonth}</strong>. Fitur ini akan aktif secara otomatis setelah terdapat pencatatan jurnal atau pemotongan panjar ATK perkara yang masuk ke Buku Bantu.
+                </p>
+              )}
 
               {/* Table of overdue cases with non-zero balance */}
-              <div className="mt-3 overflow-x-auto rounded-xl border border-rose-200 dark:border-rose-800 bg-white dark:bg-slate-900 shadow-xs">
+              <div className="mt-3 overflow-x-auto rounded-xl border border-rose-200 dark:border-rose-800/60 bg-white dark:bg-slate-900 shadow-xs">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-rose-100/60 dark:bg-rose-950/80 font-bold text-rose-900 dark:text-rose-200 border-b border-rose-200 dark:border-rose-800">
                     <tr>
@@ -581,13 +605,24 @@ export const BukuBiayaProses: React.FC<BukuBiayaProsesProps> = ({
                           {formatRupiah(c.saldoPerkara)}
                         </td>
                         <td className="px-3 py-2 text-center">
-                          <button
-                            onClick={() => handleOpenZeroingModal(c)}
-                            className="px-3 py-1 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white rounded-lg font-bold text-[11px] shadow-xs flex items-center space-x-1 mx-auto transition-transform active:scale-95"
-                          >
-                            <Zap className="w-3.5 h-3.5" />
-                            <span>Auto-Zeroing (Rp0)</span>
-                          </button>
+                          {hasAtkIncomeForMonth ? (
+                            <button
+                              onClick={() => handleOpenZeroingModal(c)}
+                              className="px-3 py-1 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white rounded-lg font-bold text-[11px] shadow-xs flex items-center space-x-1 mx-auto transition-transform active:scale-95"
+                            >
+                              <Zap className="w-3.5 h-3.5" />
+                              <span>Auto-Zeroing (Rp0)</span>
+                            </button>
+                          ) : (
+                            <button
+                              disabled
+                              className="px-3 py-1 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg font-bold text-[11px] cursor-not-allowed flex items-center space-x-1 mx-auto opacity-70"
+                              title={`Fitur nonaktif: Belum ada pemasukan ATK pada bulan ${selectedMonth}`}
+                            >
+                              <Zap className="w-3.5 h-3.5 opacity-50" />
+                              <span>Auto-Zeroing (Nonaktif)</span>
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}

@@ -540,8 +540,40 @@ export default function App() {
         addNotification('Gagal Menghapus SKUM', 'Data log SKUM tidak ditemukan.', 'alert');
         return;
       }
+      const normNomor = (target.nomorPerkara || '').trim().toLowerCase();
       const updatedSkum = jurnalSkumRecords.filter(r => r.id !== id);
       updateJurnalSkumState(updatedSkum);
+
+      // Cascade delete corresponding Buku Bantu Biaya Proses record for this nomorPerkara
+      const isAtkRecord = target.kategori === 'ATK' || 
+                          target.uraian.toLowerCase().includes('atk') || 
+                          target.uraian.toLowerCase().includes('pemberkasan');
+
+      let deletedBpRecords: BiayaProsesRecord[] = [];
+      let updatedBpRecords = biayaProsesRecords;
+
+      if (normNomor) {
+        if (isAtkRecord) {
+          deletedBpRecords = biayaProsesRecords.filter(b => {
+            const bNomor = (b.nomorPerkara || '').trim().toLowerCase();
+            if (bNomor !== normNomor) return false;
+            return b.uraian.trim().toLowerCase() === target.uraian.trim().toLowerCase() ||
+                   b.kategori === 'ATK' ||
+                   b.penerimaan === target.penerimaan;
+          });
+          updatedBpRecords = biayaProsesRecords.filter(b => !deletedBpRecords.some(d => d.id === b.id));
+        } else {
+          const remainingSkumForCase = updatedSkum.filter(s => (s.nomorPerkara || '').trim().toLowerCase() === normNomor);
+          if (remainingSkumForCase.length === 0) {
+            deletedBpRecords = biayaProsesRecords.filter(b => (b.nomorPerkara || '').trim().toLowerCase() === normNomor);
+            updatedBpRecords = biayaProsesRecords.filter(b => (b.nomorPerkara || '').trim().toLowerCase() !== normNomor);
+          }
+        }
+
+        if (deletedBpRecords.length > 0) {
+          updateBiayaProsesState(updatedBpRecords);
+        }
+      }
 
       // Reupdate cases state based on updated SKUM logs
       const updatedCases = updateCasesWithSkumLogs(cases, updatedSkum);
@@ -550,7 +582,10 @@ export default function App() {
       const webhook = getWebhookUrl(syncSettings);
       if (webhook) {
         SyncService.postToWebhook(webhook, 'delete_jurnal_skum', target);
-        const targetCase = updatedCases.find(c => c.nomorPerkara && c.nomorPerkara.trim().toLowerCase() === target.nomorPerkara.trim().toLowerCase());
+        deletedBpRecords.forEach(rec => {
+          SyncService.postToWebhook(webhook, 'delete_biaya_proses', rec);
+        });
+        const targetCase = updatedCases.find(c => c.nomorPerkara && c.nomorPerkara.trim().toLowerCase() === normNomor);
         if (targetCase) {
           SyncService.postToWebhook(webhook, 'update_case', targetCase);
         }
@@ -558,7 +593,7 @@ export default function App() {
 
       addNotification(
         'Log SKUM Berhasil Dihapus',
-        `Data transaksi SKUM perkara ${target.nomorPerkara} (${target.uraian}) telah dihapus.`,
+        `Data transaksi SKUM perkara ${target.nomorPerkara} (${target.uraian}) telah dihapus.${deletedBpRecords.length > 0 ? ' Log transaksi terkait di Buku Bantu Biaya Proses juga dihapus.' : ''}`,
         'warning',
         target.nomorPerkara
       );
@@ -739,17 +774,45 @@ export default function App() {
         addNotification('Gagal Menghapus Perkara', 'Data perkara tidak ditemukan.', 'alert');
         return;
       }
-      const updated = cases.filter(c => c.id !== id);
-      updateCasesState(updated);
+      const targetNomor = (target.nomorPerkara || '').trim().toLowerCase();
 
+      // 1. Remove case from cases list
+      const updatedCases = cases.filter(c => c.id !== id);
+      updateCasesState(updatedCases);
+
+      // 2. Cascade delete all BukuBiayaProses records for this nomorPerkara
+      const targetBpRecords = targetNomor 
+        ? biayaProsesRecords.filter(b => (b.nomorPerkara || '').trim().toLowerCase() === targetNomor)
+        : [];
+      const updatedBp = targetNomor 
+        ? biayaProsesRecords.filter(b => (b.nomorPerkara || '').trim().toLowerCase() !== targetNomor)
+        : biayaProsesRecords;
+      updateBiayaProsesState(updatedBp);
+
+      // 3. Cascade delete all JurnalSkum records for this nomorPerkara
+      const targetSkumRecords = targetNomor 
+        ? jurnalSkumRecords.filter(s => (s.nomorPerkara || '').trim().toLowerCase() === targetNomor)
+        : [];
+      const updatedSkum = targetNomor
+        ? jurnalSkumRecords.filter(s => (s.nomorPerkara || '').trim().toLowerCase() !== targetNomor)
+        : jurnalSkumRecords;
+      updateJurnalSkumState(updatedSkum);
+
+      // Webhook sync
       const webhook = getWebhookUrl(syncSettings);
       if (webhook) {
         SyncService.postToWebhook(webhook, 'delete_case', target);
+        targetBpRecords.forEach(rec => {
+          SyncService.postToWebhook(webhook, 'delete_biaya_proses', rec);
+        });
+        targetSkumRecords.forEach(rec => {
+          SyncService.postToWebhook(webhook, 'delete_jurnal_skum', rec);
+        });
       }
 
       addNotification(
-        'Perkara Berhasil Dihapus',
-        `Data perkara ${target.nomorPerkara} (${target.namaPihak}) telah berhasil dihapus.`,
+        'Perkara & Data Terkait Berhasil Dihapus',
+        `Data perkara ${target.nomorPerkara} (${target.namaPihak}) beserta seluruh log di Buku Bantu Biaya Proses dan Jurnal SKUM telah berhasil dihapus.`,
         'warning',
         target.nomorPerkara
       );
