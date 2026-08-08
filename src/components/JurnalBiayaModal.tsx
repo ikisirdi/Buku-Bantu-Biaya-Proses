@@ -33,6 +33,7 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
   const [tanggalJurnal, setTanggalJurnal] = useState<string>(new Date().toISOString().split('T')[0]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedUnrecorded, setSelectedUnrecorded] = useState<string[]>([]);
+  const [customAmounts, setCustomAmounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let targetCase: CaseRecord | undefined;
@@ -53,6 +54,7 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
       }
     }
     setErrorMessage(null);
+    setCustomAmounts({});
   }, [selectedCase, cases, isOpen]);
 
   const currentCase = cases.find(c => c.id === activeCaseId) || selectedCase || cases[0];
@@ -128,59 +130,118 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
     ];
   };
 
-  const activeFees = useMemo(() => getFeeTable(currentCase?.jenisPerkara), [currentCase?.jenisPerkara]);
+  const activeFees = useMemo(() => {
+    const defaultFees = getFeeTable(currentCase?.jenisPerkara);
+    return defaultFees.map(fee => {
+      const customVal = customAmounts[fee.name];
+      return {
+        ...fee,
+        amount: customVal !== undefined ? customVal : fee.amount
+      };
+    });
+  }, [currentCase?.jenisPerkara, customAmounts]);
 
   // Check recorded status for each fee item
   const feeStatusList = useMemo(() => {
-    return activeFees.map((fee, idx) => {
-      if (fee.amount === 0) {
-        return { ...fee, index: idx, isRecorded: false, isZeroFee: true, matchingLog: null };
+    const usedLogIds = new Set<string>();
+
+    const isSpecificMatch = (feeName: string, r: JurnalBiayaSkumRecord) => {
+      const normFeeName = feeName.toLowerCase();
+      const rUraianNorm = (r.uraian || '').toLowerCase();
+      const cleanUr = rUraianNorm.replace('pencatatan jurnal:', '').trim();
+
+      // Direct name match
+      if (rUraianNorm.includes(normFeeName) || normFeeName.includes(cleanUr)) {
+        return true;
       }
 
-      const normFeeName = fee.name.toLowerCase();
+      // Ikrar Talak
+      if (normFeeName.includes('ikrar talak')) {
+        if (!rUraianNorm.includes('ikrar')) return false;
+        if (normFeeName.includes('pemohon') && (rUraianNorm.includes('pemohon') || rUraianNorm.includes('penggugat'))) return true;
+        if (normFeeName.includes('termohon') && (rUraianNorm.includes('termohon') || rUraianNorm.includes('tergugat'))) return true;
+        return rUraianNorm.includes('ikrar');
+      }
+
+      // Pemberitahuan Putusan
+      if (normFeeName.includes('pemberitahuan putusan')) {
+        if (normFeeName.includes('pnbp') || normFeeName.includes('relaas')) {
+          return rUraianNorm.includes('pnbp') && (rUraianNorm.includes('pemberitahuan') || rUraianNorm.includes('putusan') || rUraianNorm.includes('pbt'));
+        }
+        return (rUraianNorm.includes('pemberitahuan') || rUraianNorm.includes('putusan') || rUraianNorm.includes('pbt')) && !rUraianNorm.includes('pnbp');
+      }
+
+      // Panggilan II
+      if (normFeeName.includes('panggilan ii')) {
+        return rUraianNorm.includes('panggilan ii') || rUraianNorm.includes('panggilan 2');
+      }
+
+      // Panggilan I Termohon
+      if (normFeeName.includes('panggilan i termohon')) {
+        if (normFeeName.includes('pnbp') || normFeeName.includes('relaas')) {
+          return rUraianNorm.includes('pnbp') && rUraianNorm.includes('termohon');
+        }
+        return (rUraianNorm.includes('panggilan i termohon') || rUraianNorm.includes('panggilan 1 termohon')) && !rUraianNorm.includes('pnbp');
+      }
+
+      // Panggilan I Pemohon
+      if (normFeeName.includes('panggilan i pemohon')) {
+        if (normFeeName.includes('pnbp') || normFeeName.includes('relaas')) {
+          return rUraianNorm.includes('pnbp') && rUraianNorm.includes('pemohon');
+        }
+        return (rUraianNorm.includes('panggilan i pemohon') || rUraianNorm.includes('panggilan 1 pemohon')) && !rUraianNorm.includes('pnbp');
+      }
+
+      // General categories
+      if (normFeeName.includes('pemberkasan') || normFeeName.includes('atk')) {
+        return rUraianNorm.includes('pemberkasan') || rUraianNorm.includes('atk');
+      }
+      if (normFeeName.includes('pendaftaran')) {
+        return rUraianNorm.includes('pendaftaran');
+      }
+      if (normFeeName.includes('redaksi')) {
+        return rUraianNorm.includes('redaksi');
+      }
+      if (normFeeName.includes('meterai')) {
+        return rUraianNorm.includes('meterai');
+      }
+
+      return false;
+    };
+
+    return activeFees.map((fee, idx) => {
       const matchingLog = existingCaseSkumLogs.find(r => {
-        if ((r.pengeluaran || 0) <= 0 && r.kategori !== fee.kategori) return false;
-        const rUraianNorm = (r.uraian || '').toLowerCase();
-        
-        const nameMatch = rUraianNorm.includes(normFeeName) || normFeeName.includes(rUraianNorm.replace('pencatatan jurnal:', '').trim());
-        
-        const keywordMatch = 
-          (normFeeName.includes('pemberkasan') && rUraianNorm.includes('pemberkasan')) ||
-          (normFeeName.includes('pendaftaran') && rUraianNorm.includes('pendaftaran')) ||
-          (normFeeName.includes('redaksi') && rUraianNorm.includes('redaksi')) ||
-          (normFeeName.includes('meterai') && rUraianNorm.includes('meterai')) ||
-          (normFeeName.includes('panggilan i pemohon') && rUraianNorm.includes('panggilan i pemohon')) ||
-          (normFeeName.includes('panggilan i termohon') && rUraianNorm.includes('panggilan i termohon')) ||
-          (normFeeName.includes('panggilan ii') && rUraianNorm.includes('panggilan ii')) ||
-          (normFeeName.includes('pemberitahuan putusan') && rUraianNorm.includes('pemberitahuan putusan'));
-
-        const categoryAmountMatch = (r.kategori === fee.kategori) && (r.pengeluaran === fee.amount);
-
-        return nameMatch || keywordMatch || categoryAmountMatch;
+        if (usedLogIds.has(r.id)) return false;
+        if ((r.pengeluaran || 0) <= 0 && r.kategori !== fee.kategori && r.kategori !== 'Panjar') return false;
+        return isSpecificMatch(fee.name, r);
       });
+
+      if (matchingLog) {
+        usedLogIds.add(matchingLog.id);
+      }
 
       return {
         ...fee,
         index: idx,
         isRecorded: !!matchingLog,
-        isZeroFee: false,
+        isZeroFee: fee.amount === 0,
         matchingLog
       };
     });
   }, [activeFees, existingCaseSkumLogs]);
 
   const recordedFees = useMemo(() => feeStatusList.filter(f => f.isRecorded), [feeStatusList]);
-  const unrecordedFees = useMemo(() => feeStatusList.filter(f => !f.isRecorded && f.amount > 0), [feeStatusList]);
+  const unrecordedFees = useMemo(() => feeStatusList.filter(f => !f.isRecorded), [feeStatusList]);
 
   const totalRecordedAmount = useMemo(() => recordedFees.reduce((acc, f) => acc + f.amount, 0), [recordedFees]);
   const totalUnrecordedAmount = useMemo(() => unrecordedFees.reduce((acc, f) => acc + f.amount, 0), [unrecordedFees]);
   const totalRincian = useMemo(() => activeFees.reduce((acc, f) => acc + f.amount, 0), [activeFees]);
 
-  // Sync selectedUnrecorded default when case or logs change
+  // Sync selectedUnrecorded default when case or logs or active fees change
   useEffect(() => {
-    const unrecordedNames = unrecordedFees.map(f => f.name);
+    const unrecordedNames = unrecordedFees.filter(f => f.amount > 0).map(f => f.name);
     setSelectedUnrecorded(unrecordedNames);
-  }, [activeCaseId, existingCaseSkumLogs]);
+  }, [activeCaseId, existingCaseSkumLogs, customAmounts]);
 
   const toggleUnrecordedItem = (feeName: string) => {
     if (selectedUnrecorded.includes(feeName)) {
@@ -661,15 +722,13 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
                               <td className="p-2.5 text-center">
                                 {fee.isRecorded ? (
                                   <CheckCircle2 className="w-4 h-4 text-emerald-500 mx-auto" />
-                                ) : fee.amount > 0 ? (
+                                ) : (
                                   <input
                                     type="checkbox"
                                     checked={isChecked}
                                     onChange={() => toggleUnrecordedItem(fee.name)}
                                     className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer"
                                   />
-                                ) : (
-                                  <span className="text-slate-400">-</span>
                                 )}
                               </td>
                               <td className="p-2.5">
@@ -690,26 +749,41 @@ export const JurnalBiayaModal: React.FC<JurnalBiayaModalProps> = ({
                                 </span>
                               </td>
                               <td className="p-2.5 text-right font-mono font-bold">
-                                Rp {fee.amount.toLocaleString('id-ID')}
+                                {fee.isRecorded ? (
+                                  <span>Rp {fee.amount.toLocaleString('id-ID')}</span>
+                                ) : (
+                                  <div className="flex items-center justify-end space-x-1">
+                                    <span className="text-[10px] text-slate-400">Rp</span>
+                                    <input
+                                      type="number"
+                                      value={fee.amount}
+                                      onChange={(e) => {
+                                        const val = Math.max(0, Number(e.target.value) || 0);
+                                        setCustomAmounts(prev => ({ ...prev, [fee.name]: val }));
+                                      }}
+                                      className={`w-28 px-2 py-1 text-right rounded border font-mono text-xs font-bold ${
+                                        isLight 
+                                          ? 'bg-white border-slate-300 text-slate-900 focus:border-amber-500' 
+                                          : 'bg-slate-800 border-slate-700 text-amber-300 focus:border-amber-500'
+                                      }`}
+                                    />
+                                  </div>
+                                )}
                               </td>
                               <td className="p-2.5 text-center">
                                 {fee.isRecorded ? (
                                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                                     ✓ Sudah Dipotong
                                   </span>
-                                ) : fee.amount > 0 ? (
-                                  isChecked ? (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center space-x-1 mx-auto w-max">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
-                                      <span>⚡ Belum Dipotong (Akan Dieksekusi)</span>
-                                    </span>
-                                  ) : (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-300">
-                                      Dilewati
-                                    </span>
-                                  )
+                                ) : isChecked ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center space-x-1 mx-auto w-max">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                                    <span>⚡ Belum Dipotong (Akan Dieksekusi)</span>
+                                  </span>
                                 ) : (
-                                  <span className="text-slate-400 font-mono text-[10px]">e-Court / Rp0</span>
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-300">
+                                    Dilewati
+                                  </span>
                                 )}
                               </td>
                             </tr>
