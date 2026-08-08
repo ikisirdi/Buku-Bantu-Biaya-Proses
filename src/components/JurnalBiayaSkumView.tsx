@@ -47,6 +47,7 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
   const [filterBulan, setFilterBulan] = useState<string>('ALL');
   const [filterTahun, setFilterTahun] = useState<string>(new Date().getFullYear().toString());
+  const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>('ASC');
 
   // Available unique case numbers for dropdown filter
   const availableNomorPerkara = useMemo(() => {
@@ -173,31 +174,44 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
     });
   }, [records, filterTahun, filterNomorPerkara]);
 
-  // Filter logic
-  const filteredRecords = records.filter(r => {
-    const matchQuery = 
-      r.nomorPerkara.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.uraian.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.keterangan.toLowerCase().includes(searchQuery.toLowerCase());
+  // Filter & Sort logic
+  const filteredRecords = useMemo(() => {
+    return records
+      .filter(r => {
+        const matchQuery = 
+          r.nomorPerkara.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          r.uraian.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          r.keterangan.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchNomorPerkara = filterNomorPerkara === 'ALL' || r.nomorPerkara === filterNomorPerkara;
-    const matchCategory = filterCategory === 'ALL' || r.kategori === filterCategory;
+        const matchNomorPerkara = filterNomorPerkara === 'ALL' || r.nomorPerkara === filterNomorPerkara;
+        const matchCategory = filterCategory === 'ALL' || r.kategori === filterCategory;
 
-    let matchMonthYear = true;
-    if (r.tanggal) {
-      const d = new Date(r.tanggal);
-      if (!isNaN(d.getTime())) {
-        if (filterTahun !== 'ALL' && d.getFullYear().toString() !== filterTahun) {
-          matchMonthYear = false;
+        let matchMonthYear = true;
+        if (r.tanggal) {
+          const d = new Date(r.tanggal);
+          if (!isNaN(d.getTime())) {
+            if (filterTahun !== 'ALL' && d.getFullYear().toString() !== filterTahun) {
+              matchMonthYear = false;
+            }
+            if (filterBulan !== 'ALL' && (d.getMonth() + 1).toString().padStart(2, '0') !== filterBulan) {
+              matchMonthYear = false;
+            }
+          }
         }
-        if (filterBulan !== 'ALL' && (d.getMonth() + 1).toString().padStart(2, '0') !== filterBulan) {
-          matchMonthYear = false;
-        }
-      }
-    }
 
-    return matchQuery && matchNomorPerkara && matchCategory && matchMonthYear;
-  });
+        return matchQuery && matchNomorPerkara && matchCategory && matchMonthYear;
+      })
+      .sort((a, b) => {
+        const dateA = a.tanggal || '';
+        const dateB = b.tanggal || '';
+        if (dateA !== dateB) {
+          return sortDirection === 'ASC' ? dateA.localeCompare(dateB) : dateB.localeCompare(dateA);
+        }
+        const createdA = a.createdAt || '';
+        const createdB = b.createdAt || '';
+        return sortDirection === 'ASC' ? createdA.localeCompare(createdB) : createdB.localeCompare(createdA);
+      });
+  }, [records, searchQuery, filterNomorPerkara, filterCategory, filterBulan, filterTahun, sortDirection]);
 
   // Calculate totals
   const totalDebet = filteredRecords.reduce((acc, r) => acc + (r.penerimaan || 0), 0);
@@ -600,6 +614,18 @@ export const JurnalBiayaSkumView: React.FC<JurnalBiayaSkumViewProps> = ({
             <option value="2026">2026</option>
             <option value="2025">2025</option>
             <option value="2024">2024</option>
+          </select>
+
+          {/* Urutan Filter */}
+          <select
+            value={sortDirection}
+            onChange={(e) => setSortDirection(e.target.value as 'ASC' | 'DESC')}
+            className={`px-3 py-2 rounded-xl text-xs border font-semibold ${
+              isLight ? 'bg-slate-50 border-slate-300 text-slate-700' : 'bg-slate-800 border-slate-700 text-slate-200'
+            }`}
+          >
+            <option value="ASC">Urutan: Tanggal (Terlama ke Terbaru)</option>
+            <option value="DESC">Urutan: Tanggal (Terbaru ke Terlama)</option>
           </select>
         </div>
       </div>

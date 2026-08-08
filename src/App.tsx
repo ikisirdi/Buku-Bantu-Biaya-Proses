@@ -181,7 +181,7 @@ export default function App() {
 
     setCases(syncedLoadedCases);
     setBiayaProsesRecords(loadedBiayaProses);
-    setJurnalSkumRecords(loadedJurnalSkum);
+    setJurnalSkumRecords(sortSkumRecords(loadedJurnalSkum));
     setNotifications(loadedNotifs);
     setCacheMeta(StorageService.getCacheMeta());
 
@@ -246,14 +246,28 @@ export default function App() {
     setCacheMeta(StorageService.getCacheMeta());
   }, []);
 
+  const sortSkumRecords = (records: JurnalBiayaSkumRecord[]): JurnalBiayaSkumRecord[] => {
+    return [...records].sort((a, b) => {
+      const dateA = a.tanggal || '';
+      const dateB = b.tanggal || '';
+      if (dateA !== dateB) {
+        return dateA.localeCompare(dateB);
+      }
+      const createdA = a.createdAt || '';
+      const createdB = b.createdAt || '';
+      return createdA.localeCompare(createdB);
+    });
+  };
+
   const updateBiayaProsesState = useCallback((newRecords: BiayaProsesRecord[]) => {
     setBiayaProsesRecords(newRecords);
     StorageService.saveBiayaProsesRecords(newRecords);
   }, []);
 
   const updateJurnalSkumState = useCallback((newRecords: JurnalBiayaSkumRecord[]) => {
-    setJurnalSkumRecords(newRecords);
-    StorageService.saveJurnalSkumRecords(newRecords);
+    const sorted = sortSkumRecords(newRecords);
+    setJurnalSkumRecords(sorted);
+    StorageService.saveJurnalSkumRecords(sorted);
   }, []);
 
   const addNotification = useCallback((title: string, message: string, type: 'info' | 'success' | 'warning' | 'alert', nomorPerkara?: string) => {
@@ -611,9 +625,10 @@ export default function App() {
   ) => {
     const today = tanggalJurnal || new Date().toISOString().split('T')[0];
 
+    const now = Date.now();
     // 1. Generate JurnalBiayaSkumRecord entries (Logged in JurnalBiayaSKUM sheet)
     const newSkumRecords: JurnalBiayaSkumRecord[] = journalItems.map((item, idx) => ({
-      id: `skum-${Date.now()}-${idx}`,
+      id: `skum-${now}-${idx}`,
       tanggal: today,
       nomorPerkara,
       uraian: item.uraian,
@@ -621,7 +636,7 @@ export default function App() {
       pengeluaran: item.kategori !== 'Panjar' ? item.amount : 0,
       kategori: item.kategori,
       keterangan: 'Pencatatan Jurnal SKUM Perkara',
-      createdAt: new Date().toISOString()
+      createdAt: new Date(now + idx * 100).toISOString()
     }));
 
     // 2. Generate BiayaProsesRecord ONLY for ATK items so Buku Bantu Biaya Proses isn't polluted
