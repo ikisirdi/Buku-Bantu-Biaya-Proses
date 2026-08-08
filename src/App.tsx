@@ -1047,6 +1047,7 @@ export default function App() {
         onClose={() => setIsJurnalModalOpen(false)}
         cases={cases}
         selectedCase={jurnalSelectedCase}
+        jurnalSkumRecords={jurnalSkumRecords}
         onExecuteJurnal={handleExecuteJurnal}
         theme={theme}
       />
